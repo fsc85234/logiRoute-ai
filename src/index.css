@@ -33,6 +33,7 @@
   
   --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --sidebar-width: 260px;
+  --mobile-nav-height: 68px;
 }
 
 * {
@@ -93,33 +94,19 @@ body {
 }
 
 @keyframes scan-laser {
-  0% {
-    top: 0%;
-  }
-  50% {
-    top: 100%;
-  }
-  100% {
-    top: 0%;
-  }
+  0% { top: 0%; }
+  50% { top: 100%; }
+  100% { top: 0%; }
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 @keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
 }
 
 .animate-glow {
@@ -136,7 +123,10 @@ body {
   animation: shimmer 2s infinite linear;
 }
 
-/* App Layout Grid */
+/* ===================== */
+/*   APP LAYOUT GRID     */
+/* ===================== */
+
 .app-container {
   display: flex;
   min-height: 100vh;
@@ -152,6 +142,7 @@ body {
   height: 100vh;
   overflow-y: auto;
   position: relative;
+  min-width: 0; /* prevent flex overflow */
 }
 
 .content-body {
@@ -162,7 +153,24 @@ body {
   margin: 0 auto;
 }
 
-/* Typography styles */
+/* ===================== */
+/* SIDEBAR VISIBILITY    */
+/* ===================== */
+
+/* Desktop sidebar: visible as flex column */
+.sidebar-desktop {
+  display: flex !important;
+}
+
+/* Mobile bottom nav: hidden on desktop */
+.sidebar-mobile {
+  display: none;
+}
+
+/* ===================== */
+/*   TYPOGRAPHY          */
+/* ===================== */
+
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-title);
   color: var(--text-primary);
@@ -170,7 +178,10 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.02em;
 }
 
-/* Buttons */
+/* ===================== */
+/*   BUTTONS             */
+/* ===================== */
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -230,7 +241,10 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: none !important;
 }
 
-/* Forms */
+/* ===================== */
+/*   FORMS               */
+/* ===================== */
+
 .form-group {
   margin-bottom: 16px;
 }
@@ -261,7 +275,10 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 0 10px rgba(6, 182, 212, 0.15);
 }
 
-/* Interactive Tables */
+/* ===================== */
+/*   TABLES              */
+/* ===================== */
+
 .table-container {
   overflow-x: auto;
   border-radius: 12px;
@@ -297,7 +314,10 @@ h1, h2, h3, h4, h5, h6 {
   background: rgba(22, 32, 59, 0.5);
 }
 
-/* Tag / Badge Styles */
+/* ===================== */
+/*   BADGES              */
+/* ===================== */
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -326,14 +346,16 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
-/* Leaflet Map Dark Theme Overrides */
+/* ===================== */
+/*   LEAFLET MAP         */
+/* ===================== */
+
 .leaflet-container {
   background-color: var(--bg-primary) !important;
   border-radius: 16px;
   border: 1px solid var(--card-border);
 }
 
-/* Premium Dynamic Filter to convert default maps to Dark Glowing maps */
 .leaflet-tile-container img {
   filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%) !important;
 }
@@ -369,7 +391,6 @@ h1, h2, h3, h4, h5, h6 {
   border-bottom: 1px solid var(--card-border) !important;
 }
 
-/* Custom Marker Styles */
 .custom-map-marker {
   display: flex;
   align-items: center;
@@ -381,4 +402,84 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
   font-size: 11px;
   box-shadow: 0 0 10px rgba(6, 182, 212, 0.6);
+}
+
+/* ================================= */
+/*   MOBILE RESPONSIVE  ≤ 768px      */
+/* ================================= */
+
+@media (max-width: 768px) {
+
+  /* Switch sidebar to bottom nav */
+  .sidebar-desktop {
+    display: none !important;
+  }
+
+  .sidebar-mobile {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--mobile-nav-height);
+    z-index: 100;
+    background: rgba(10, 14, 26, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--card-border);
+    align-items: stretch;
+    justify-content: space-around;
+    padding: 0;
+    /* Safe area for iPhone home indicator */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Tap feedback on mobile nav buttons */
+  .mobile-nav-btn:active {
+    opacity: 0.7;
+    transform: scale(0.95);
+  }
+
+  /* Main content: full width, pad bottom to clear nav bar */
+  .app-container {
+    flex-direction: column;
+  }
+
+  .main-content {
+    height: 100dvh; /* dynamic viewport height for mobile browsers */
+    padding-bottom: var(--mobile-nav-height);
+  }
+
+  /* Tighter content padding on small screens */
+  .content-body {
+    padding: 12px;
+  }
+
+  /* Make tables horizontally scrollable without overflow */
+  .table-container {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Smaller font for table cells on mobile */
+  .custom-table th,
+  .custom-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  /* Full-width buttons on mobile */
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ================================= */
+/*   SMALL PHONES  ≤ 390px           */
+/* ================================= */
+
+@media (max-width: 390px) {
+  .content-body {
+    padding: 8px;
+  }
 }
