@@ -230,6 +230,72 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
     }
   };
 
+  // 5. Export route list as CSV with date as filename
+  const exportRouteListAsCSV = () => {
+    if (filteredItems.length === 0) return;
+
+    // Prepare CSV header and data
+    const headers = ['站次', '收件人', '頻道', '訂單號', '地址', '電話', '品名', '時段', '服務類型', '備註'];
+    const csvContent = [
+      headers.join(','),
+      ...filteredItems.map(item => [
+        item.seq,
+        `"${item.recipient}"`,
+        item.channel,
+        item.orderId,
+        `"${item.address}"`,
+        item.phone,
+        `"${item.items}"`,
+        item.deliveryTime,
+        item.serviceType,
+        `"${item.remarks}"`
+      ].join(','))
+    ].join('\n');
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `物流配送清單_${selectedDate}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // 6. Copy route list as formatted text to clipboard
+  const copyRouteListToClipboard = async () => {
+    if (filteredItems.length === 0) return;
+
+    const textContent = [
+      `=== 物流配送清單 ===`,
+      `日期: ${selectedDate}`,
+      `共 ${filteredItems.length} 個站點`,
+      ``,
+      ...filteredItems.map(item => 
+        `第 ${item.seq} 站: ${item.recipient}\n` +
+        `├─ 地址: ${item.address}\n` +
+        `├─ 頻道: ${item.channel} (${item.orderId})\n` +
+        `├─ 電話: ${item.phone}\n` +
+        `├─ 品名: ${item.items}\n` +
+        `├─ 時段: ${item.deliveryTime}\n` +
+        `├─ 服務: ${item.serviceType}\n` +
+        `└─ 備註: ${item.remarks}\n`
+      ).join('\n')
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(textContent);
+      alert('清單已複製到剪貼板！');
+    } catch (err) {
+      console.error('Copy failed:', err);
+      alert('複製失敗，請重試');
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
@@ -426,11 +492,53 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
                   一鍵生成 Google Maps 路線
                   <ExternalLink size={14} />
                 </button>
+
+                {/* Export buttons */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={exportRouteListAsCSV}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      fontSize: '12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--card-border)',
+                      background: 'rgba(139, 92, 246, 0.1)',
+                      color: 'var(--accent-violet)',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'var(--transition-smooth)'
+                    }}
+                    title="下載 CSV 檔案"
+                  >
+                    📥 下載 CSV
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    onClick={copyRouteListToClipboard}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      fontSize: '12px',
+                      borderRadius: '8px',
+                      border: '1px solid var(--card-border)',
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      color: 'var(--accent-emerald)',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'var(--transition-smooth)'
+                    }}
+                    title="複製到剪貼板"
+                  >
+                    📋 複製清單
+                  </button>
+                </div>
                 
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', gap: '6px', lineHeight: 1.3 }}>
                   <Info size={14} style={{ flexShrink: 0 }} />
                   <span>
-                    一鍵點擊會將上述所有站點以<strong>最優配送順序</strong>打包載入 Google Maps，提供給司機開啟行動導航或檢視多點配送最佳線路。
+                    一鍵點擊會將上述所有站點以<strong>最優配送順序</strong>打包載入 Google Maps，或導出清單供司機檢視。
                   </span>
                 </span>
               </div>
