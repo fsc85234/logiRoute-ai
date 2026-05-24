@@ -212,7 +212,6 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
     if (filteredItems.length === 0) return '';
     
     // Address coordinates or direct text addresses mapping
-    // Google Maps dir endpoint: https://www.google.com/maps/dir/Address1/Address2/Address3/...
     const routeAddresses = filteredItems.map(item => encodeURIComponent(item.address));
     
     if (routeAddresses.length === 1) {
@@ -225,7 +224,9 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
   const launchGoogleMaps = () => {
     const url = getGoogleMapsRouteUrl();
     if (url) {
-      window.open(url, '_blank');
+      // Use window.location.href for better mobile compatibility
+      // This works reliably on both desktop and mobile browsers
+      window.location.href = url;
     }
   };
 
@@ -262,11 +263,19 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
         )}
       </div>
 
-      {/* Main planner panels */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px', height: 'calc(100vh - 260px)', minHeight: '450px' }}>
+      {/* Main planner panels - Responsive Grid */}
+      <div 
+        style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+          gap: '24px', 
+          height: 'calc(100vh - 260px)', 
+          minHeight: '450px'
+        }}
+      >
         
         {/* Map Panel */}
-        <div style={{ position: 'relative', height: '100%' }}>
+        <div style={{ position: 'relative', height: '100%', minHeight: '300px' }}>
           <div 
             ref={mapContainerRef} 
             style={{ 
@@ -315,7 +324,8 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
             flexDirection: 'column', 
             gap: '20px', 
             height: '100%',
-            overflowY: 'auto'
+            overflowY: 'auto',
+            minHeight: '350px'
           }}
         >
           {/* Exporter Dashboard */}
@@ -391,7 +401,25 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
                     padding: '12px',
                     fontSize: '14px',
                     background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
-                    boxShadow: '0 4px 14px rgba(14, 165, 233, 0.3)'
+                    boxShadow: '0 4px 14px rgba(14, 165, 233, 0.3)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    borderRadius: '10px',
+                    transition: 'var(--transition-smooth)',
+                    fontWeight: '600'
+                  }}
+                  onMouseDown={(e) => {
+                    // Add press feedback
+                    (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.98)';
+                  }}
+                  onMouseUp={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
+                  }}
+                  onTouchStart={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.98)';
+                  }}
+                  onTouchEnd={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
                   }}
                 >
                   <MapIcon size={16} />
@@ -421,6 +449,20 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
       <style>{`
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+
+        /* Mobile responsiveness for map/sidebar layout */
+        @media (max-width: 768px) {
+          div[style*="gridTemplateColumns"] {
+            grid-template-columns: 1fr !important;
+            height: auto !important;
+            min-height: auto !important;
+          }
+
+          div[style*="height: calc(100vh"] {
+            height: auto !important;
+            min-height: 300px;
+          }
         }
       `}</style>
     </div>
