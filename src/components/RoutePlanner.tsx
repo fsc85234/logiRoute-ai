@@ -50,7 +50,7 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
       const results = await batchGeocode(
         addressesToGeocode, 
         settings.defaultRegion,
-        (progress) => setGeocodeProgress(progress)
+        (progress: number) => setGeocodeProgress(progress)
       );
 
       // Save geocode results back to parent state
