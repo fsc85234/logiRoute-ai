@@ -187,8 +187,8 @@ export default function App() {
       return currentItems;
     });
 
-    // Jump to the address database directly to let users view their newly imported stops!
-    setActiveTab('database');
+    // ✨ Auto-jump to map to view newly imported addresses with auto-geocoding!
+    setActiveTab('map');
   };
 
   // Map Handler: Save geocode results back to the database
