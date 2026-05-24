@@ -298,59 +298,145 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
 
   // 7. Generate KML file for Google Maps import
   const generateKMLAndDownload = () => {
-    if (filteredItems.length === 0) {
-      alert('沒有地址可導出');
+    // Validate: ensure we have items with coordinates
+    const itemsWithCoords = filteredItems.filter(
+      item => item.latitude && item.longitude && 
+               typeof item.latitude === 'number' && 
+               typeof item.longitude === 'number'
+    );
+
+    if (itemsWithCoords.length === 0) {
+      alert(
+        '❌ 無法導出：\n\n' +
+        '原因：配送點清單中沒有有效的 GPS 座標。\n\n' +
+        '解決步驟：\n' +
+        '1️⃣ 確認已在「地圖」頁面載入配送點\n' +
+        '2️⃣ 系統應自動地理編碼（將地址轉換為坐標）\n' +
+        '3️⃣ 請等待 5-10 秒讓地理編碼完成\n' +
+        '4️⃣ 確認地圖上已顯示所有配送點位置\n' +
+        '5️⃣ 再試一次下載'
+      );
       return;
+    }
+
+    // If some items lack coordinates, warn user
+    if (itemsWithCoords.length < filteredItems.length) {
+      const missingCount = filteredItems.length - itemsWithCoords.length;
+      alert(
+        `⚠️ 部分配送點缺少座標\n\n` +
+        `將導出 ${itemsWithCoords.length}/${filteredItems.length} 個配送點\n` +
+        `（${missingCount} 個地點無法地理編碼，已排除）\n\n` +
+        `請稍候後重試，讓系統完成所有地理編碼。`
+      );
     }
 
     // Extract date format: 2026-05-23 → 0523
     const dateShort = selectedDate.slice(-5).replace('-', '');
 
-    // Generate KML content
+    // Generate Placemark for each item with valid coordinates
+    const placemarks = itemsWithCoords
+      .map((item, index) => {
+        // Validate coordinates are numbers
+        const lat = parseFloat(String(item.latitude));
+        const lng = parseFloat(String(item.longitude));
+
+        // Skip invalid coordinates
+        if (isNaN(lat) || isNaN(lng)) {
+          console.warn(`Invalid coords for item ${item.seq}:`, item);
+          return '';
+        }
+
+        // Ensure coordinates are within valid range
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+          console.warn(`Out of range coords for item ${item.seq}:`, lat, lng);
+          return '';
+        }
+
+        return `
+      <Placemark>
+        <name>第 ${item.seq} 站: ${item.recipient} (${item.channel})</name>
+        <description><![CDATA[
+<b>📍 配送資訊</b><br/>
+<b>收件人：</b>${item.recipient}<br/>
+<b>地址：</b>${item.address}<br/>
+<b>電話：</b>${item.phone}<br/>
+<b>品名：</b>${item.items}<br/>
+<b>頻道：</b>${item.channel} (${item.orderId})<br/>
+<b>時段：</b>${item.deliveryTime}<br/>
+<b>服務：</b>${item.serviceType}<br/>
+${item.remarks && item.remarks !== 'N/A' ? `<b>備註：</b>${item.remarks}<br/>` : ''}
+<b>序號：</b> ${index + 1}/${itemsWithCoords.length}
+        ]]></description>
+        <Point>
+          <coordinates>${lng},${lat},0</coordinates>
+        </Point>
+        <styleUrl>#stopIcon</styleUrl>
+      </Placemark>`;
+      })
+      .filter(pm => pm !== '') // Remove empty placemark strings
+      .join('\n');
+
+    // Generate KML document
     const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
-    <name>物流配送清單_${dateShort}</name>
-    <description>LogiRoute AI 配送點清單 | 日期: ${selectedDate}</description>
+    <name>物流配送清單_${dateShort} (${itemsWithCoords.length}站)</name>
+    <description>LogiRoute AI 配送點清單
+日期: ${selectedDate}
+共 ${itemsWithCoords.length} 個配送點
+由 LogiRoute AI 智能物流系統生成</description>
+    
     <Style id="stopIcon">
       <IconStyle>
+        <color>ff4285F4</color>
         <Icon>
-          <href>http://maps.google.com/mapfiles/kml/paddle/blue-circle.png</href>
+          <href>http://maps.google.com/mapfiles/kml/pushpin/blue-pushpin.png</href>
         </Icon>
-        <scale>1.0</scale>
+        <hotSpot x="32" y="32" xunits="pixels" yunits="pixels"/>
+        <scale>1.2</scale>
       </IconStyle>
       <LabelStyle>
+        <color>ff4285F4</color>
         <scale>1.0</scale>
       </LabelStyle>
+      <LineStyle>
+        <color>ff4285F4</color>
+        <width>2</width>
+      </LineStyle>
     </Style>
+
     <Folder>
-      <name>配送點 (${filteredItems.length} 站)</name>
-      <description>由 LogiRoute AI 自動生成的配送路線清單</description>
-      ${filteredItems
-        .map(
-          (item) => `
-      <Placemark>
-        <name>第 ${item.seq} 站: ${item.recipient}</name>
-        <description><![CDATA[
-          <b>配送資訊</b><br/>
-          收件人: ${item.recipient}<br/>
-          地址: ${item.address}<br/>
-          頻道: ${item.channel} (${item.orderId})<br/>
-          電話: ${item.phone}<br/>
-          品名: ${item.items}<br/>
-          時段: ${item.deliveryTime}<br/>
-          服務: ${item.serviceType}<br/>
-          ${item.remarks !== 'N/A' ? `備註: ${item.remarks}<br/>` : ''}
-        ]]></description>
-        <Point>
-          <coordinates>${item.longitude},${item.latitude},0</coordinates>
-        </Point>
-        <styleUrl>#stopIcon</styleUrl>
-      </Placemark>
-        `
-        )
-        .join('\n')}
+      <name>🚚 配送路線 (${itemsWithCoords.length} 站)</name>
+      <description>LogiRoute AI 自動規劃的最優配送路線</description>
+      <visibility>1</visibility>
+${placemarks}
     </Folder>
+
+    <!-- 路線線段（用於視覺化配送路線） -->
+    <Placemark>
+      <name>📍 配送路線</name>
+      <description>連接所有配送點的最優配送路線</description>
+      <LineString>
+        <extrude>0</extrude>
+        <tessellate>1</tessellate>
+        <altitudeMode>clampToGround</altitudeMode>
+        <coordinates>
+${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).join('\n')}
+        </coordinates>
+      </LineString>
+      <styleUrl>#lineStyle</styleUrl>
+    </Placemark>
+
+    <Style id="lineStyle">
+      <LineStyle>
+        <color>ff4285F4</color>
+        <width>3</width>
+      </LineStyle>
+      <PolyStyle>
+        <fill>0</fill>
+      </PolyStyle>
+    </Style>
+
   </Document>
 </kml>`;
 
@@ -369,8 +455,25 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
     link.click();
     document.body.removeChild(link);
 
-    // Show success feedback
-    alert(`✅ 已下載配送清單 KML 檔案\n檔名: 配送清單_${dateShort}.kml\n\n接下來請：\n1️⃣ 在 Google Maps 開啟個人中心\n2️⃣ 建立新清單\n3️⃣ 匯入此 KML 檔案\n4️⃣ 所有配送點將自動加入清單`);
+    // Success feedback with detailed instructions
+    alert(
+      `✅ 已成功下載 KML 檔案！\n\n` +
+      `📋 檔案名稱: 配送清單_${dateShort}.kml\n` +
+      `📍 包含配送點: ${itemsWithCoords.length} 個\n\n` +
+      `📱 手機用戶（Google Maps App）：\n` +
+      `1️⃣ 打開 Google Maps App\n` +
+      `2️⃣ 點擊【☰ 選單】→ 【您的地點 (Your Places)】\n` +
+      `3️⃣ 點擊【＋ 新建清單 (Create List)】\n` +
+      `4️⃣ 清單名稱: 配送_${dateShort}\n` +
+      `5️⃣ 點擊【⋮ 選項】→ 【導入地點 (Import places)】\n` +
+      `6️⃣ 選擇下載的 KML 檔案\n` +
+      `7️⃣ ✨ 所有配送點將自動加入清單\n\n` +
+      `💻 電腦用戶（Google My Maps）：\n` +
+      `1️⃣ 前往 https://mymaps.google.com\n` +
+      `2️⃣ 點擊【建立新地圖】\n` +
+      `3️⃣ 左側【導入】→ 選擇 KML 檔案\n` +
+      `4️⃣ ✨ 地圖將自動顯示所有配送點`
+    );
   };
 
   return (
