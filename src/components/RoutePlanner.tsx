@@ -344,47 +344,6 @@ ${placemarks}
 </kml>`;
   };
 
-  // 8. Sync to Google Maps - Download KML and provide instructions
-  const syncToGoogleMaps = () => {
-    if (filteredItems.length === 0) return;
-
-    // Generate list name from date (e.g., 0523 from 2026-05-23)
-    const dateObj = new Date(selectedDate);
-    const monthDay = `${String(dateObj.getMonth() + 1).padStart(2, '0')}${String(dateObj.getDate()).padStart(2, '0')}`;
-    const kmlContent = generateKMLContent();
-
-    // Download KML file
-    const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `配送清單_${monthDay}.kml`);
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // Show instruction modal
-    alert(
-      `✅ 清單文件已下載！\n\n` +
-      `📱 手機用戶:\n` +
-      `1. 打開 Google Maps App\n` +
-      `2. 點擊【☰ 選單】> 【您的地點】\n` +
-      `3. 點擊【＋ 新建清單】\n` +
-      `4. 取名為「${monthDay}」\n` +
-      `5. 點擊【⋮ 選項】> 【導入地點】\n` +
-      `6. 上傳剛下載的 KML 文件\n\n` +
-      `💻 電腦用戶:\n` +
-      `1. 打開 Google My Maps\n` +
-      `2. 點擊【建立新地圖】\n` +
-      `3. 點擊【導入】\n` +
-      `4. 上傳 KML 文件\n` +
-      `5. 另存為個人地圖`
-    );
-  };
-
   // 7. Generate KML file for Google Maps import
   const generateKMLAndDownload = () => {
     if (filteredItems.length === 0) {
