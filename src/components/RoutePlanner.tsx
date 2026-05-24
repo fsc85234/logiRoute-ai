@@ -296,54 +296,6 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
     }
   };
 
-  // 7. Generate KML format for Google Maps import
-  const generateKMLContent = () => {
-    const listName = `物流配送_${selectedDate.replace(/-/g, '')}`;
-    
-    const placemarks = filteredItems
-      .filter(item => item.latitude && item.longitude)
-      .map(item => `
-    <Placemark>
-      <name>${item.seq}. ${item.recipient} (${item.channel})</name>
-      <description>${item.address}
-地址: ${item.address}
-訂單: ${item.orderId}
-電話: ${item.phone}
-品名: ${item.items}
-時段: ${item.deliveryTime}
-服務: ${item.serviceType}
-${item.remarks !== 'N/A' ? `備註: ${item.remarks}` : ''}</description>
-      <Point>
-        <coordinates>${item.longitude},${item.latitude},0</coordinates>
-      </Point>
-      <Style>
-        <IconStyle>
-          <Icon>
-            <href>http://maps.google.com/mapfiles/kml/paddle/blue-dot.png</href>
-          </Icon>
-        </IconStyle>
-      </Style>
-    </Placemark>`)
-      .join('\n');
-
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>${listName}</name>
-    <description>自動生成的物流配送清單 | LogiRoute AI</description>
-    <Style id="markerStyle">
-      <IconStyle>
-        <scale>1.0</scale>
-        <Icon>
-          <href>http://maps.google.com/mapfiles/kml/paddle/blue-dot.png</href>
-        </Icon>
-      </IconStyle>
-    </Style>
-${placemarks}
-  </Document>
-</kml>`;
-  };
-
   // 7. Generate KML file for Google Maps import
   const generateKMLAndDownload = () => {
     if (filteredItems.length === 0) {
