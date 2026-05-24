@@ -296,6 +296,172 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
     }
   };
 
+  // 7. Generate KML format for Google Maps import
+  const generateKMLContent = () => {
+    const listName = `物流配送_${selectedDate.replace(/-/g, '')}`;
+    
+    const placemarks = filteredItems
+      .filter(item => item.latitude && item.longitude)
+      .map(item => `
+    <Placemark>
+      <name>${item.seq}. ${item.recipient} (${item.channel})</name>
+      <description>${item.address}
+地址: ${item.address}
+訂單: ${item.orderId}
+電話: ${item.phone}
+品名: ${item.items}
+時段: ${item.deliveryTime}
+服務: ${item.serviceType}
+${item.remarks !== 'N/A' ? `備註: ${item.remarks}` : ''}</description>
+      <Point>
+        <coordinates>${item.longitude},${item.latitude},0</coordinates>
+      </Point>
+      <Style>
+        <IconStyle>
+          <Icon>
+            <href>http://maps.google.com/mapfiles/kml/paddle/blue-dot.png</href>
+          </Icon>
+        </IconStyle>
+      </Style>
+    </Placemark>`)
+      .join('\n');
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${listName}</name>
+    <description>自動生成的物流配送清單 | LogiRoute AI</description>
+    <Style id="markerStyle">
+      <IconStyle>
+        <scale>1.0</scale>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/paddle/blue-dot.png</href>
+        </Icon>
+      </IconStyle>
+    </Style>
+${placemarks}
+  </Document>
+</kml>`;
+  };
+
+  // 8. Sync to Google Maps - Download KML and provide instructions
+  const syncToGoogleMaps = () => {
+    if (filteredItems.length === 0) return;
+
+    // Generate list name from date (e.g., 0523 from 2026-05-23)
+    const dateObj = new Date(selectedDate);
+    const monthDay = `${String(dateObj.getMonth() + 1).padStart(2, '0')}${String(dateObj.getDate()).padStart(2, '0')}`;
+    const kmlContent = generateKMLContent();
+
+    // Download KML file
+    const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `配送清單_${monthDay}.kml`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Show instruction modal
+    alert(
+      `✅ 清單文件已下載！\n\n` +
+      `📱 手機用戶:\n` +
+      `1. 打開 Google Maps App\n` +
+      `2. 點擊【☰ 選單】> 【您的地點】\n` +
+      `3. 點擊【＋ 新建清單】\n` +
+      `4. 取名為「${monthDay}」\n` +
+      `5. 點擊【⋮ 選項】> 【導入地點】\n` +
+      `6. 上傳剛下載的 KML 文件\n\n` +
+      `💻 電腦用戶:\n` +
+      `1. 打開 Google My Maps\n` +
+      `2. 點擊【建立新地圖】\n` +
+      `3. 點擊【導入】\n` +
+      `4. 上傳 KML 文件\n` +
+      `5. 另存為個人地圖`
+    );
+  };
+
+  // 7. Generate KML file for Google Maps import
+  const generateKMLAndDownload = () => {
+    if (filteredItems.length === 0) {
+      alert('沒有地址可導出');
+      return;
+    }
+
+    // Extract date format: 2026-05-23 → 0523
+    const dateShort = selectedDate.slice(-5).replace('-', '');
+
+    // Generate KML content
+    const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>物流配送清單_${dateShort}</name>
+    <description>LogiRoute AI 配送點清單 | 日期: ${selectedDate}</description>
+    <Style id="stopIcon">
+      <IconStyle>
+        <Icon>
+          <href>http://maps.google.com/mapfiles/kml/paddle/blue-circle.png</href>
+        </Icon>
+        <scale>1.0</scale>
+      </IconStyle>
+      <LabelStyle>
+        <scale>1.0</scale>
+      </LabelStyle>
+    </Style>
+    <Folder>
+      <name>配送點 (${filteredItems.length} 站)</name>
+      <description>由 LogiRoute AI 自動生成的配送路線清單</description>
+      ${filteredItems
+        .map(
+          (item) => `
+      <Placemark>
+        <name>第 ${item.seq} 站: ${item.recipient}</name>
+        <description><![CDATA[
+          <b>配送資訊</b><br/>
+          收件人: ${item.recipient}<br/>
+          地址: ${item.address}<br/>
+          頻道: ${item.channel} (${item.orderId})<br/>
+          電話: ${item.phone}<br/>
+          品名: ${item.items}<br/>
+          時段: ${item.deliveryTime}<br/>
+          服務: ${item.serviceType}<br/>
+          ${item.remarks !== 'N/A' ? `備註: ${item.remarks}<br/>` : ''}
+        ]]></description>
+        <Point>
+          <coordinates>${item.longitude},${item.latitude},0</coordinates>
+        </Point>
+        <styleUrl>#stopIcon</styleUrl>
+      </Placemark>
+        `
+        )
+        .join('\n')}
+    </Folder>
+  </Document>
+</kml>`;
+
+    // Create blob and download
+    const blob = new Blob([kmlContent], {
+      type: 'application/vnd.google-earth.kml+xml;charset=utf-8',
+    });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', `配送清單_${dateShort}.kml`);
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Show success feedback
+    alert(`✅ 已下載配送清單 KML 檔案\n檔名: 配送清單_${dateShort}.kml\n\n接下來請：\n1️⃣ 在 Google Maps 開啟個人中心\n2️⃣ 建立新清單\n3️⃣ 匯入此 KML 檔案\n4️⃣ 所有配送點將自動加入清單`);
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
@@ -534,11 +700,90 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
                     📋 複製清單
                   </button>
                 </div>
+
+                {/* 🌟 Neon Green Google Maps Sync Button */}
+                <button
+                  onClick={generateKMLAndDownload}
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    letterSpacing: '0.02em',
+                    borderRadius: '10px',
+                    border: '1.5px solid',
+                    borderColor: '#39ff14',
+                    background: 'linear-gradient(135deg, rgba(57, 255, 20, 0.08), rgba(57, 255, 20, 0.04))',
+                    color: '#39ff14',
+                    cursor: 'pointer',
+                    transition: 'var(--transition-smooth)',
+                    backdropFilter: 'blur(8px)',
+                    boxShadow: '0 0 20px rgba(57, 255, 20, 0.3), inset 0 0 20px rgba(57, 255, 20, 0.05)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                      '0 0 30px rgba(57, 255, 20, 0.6), inset 0 0 20px rgba(57, 255, 20, 0.15)';
+                    (e.currentTarget as HTMLButtonElement).style.background =
+                      'linear-gradient(135deg, rgba(57, 255, 20, 0.15), rgba(57, 255, 20, 0.08))';
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                      '0 0 20px rgba(57, 255, 20, 0.3), inset 0 0 20px rgba(57, 255, 20, 0.05)';
+                    (e.currentTarget as HTMLButtonElement).style.background =
+                      'linear-gradient(135deg, rgba(57, 255, 20, 0.08), rgba(57, 255, 20, 0.04))';
+                  }}
+                  onTouchStart={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.98)';
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                      '0 0 25px rgba(57, 255, 20, 0.5)';
+                  }}
+                  onTouchEnd={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow =
+                      '0 0 20px rgba(57, 255, 20, 0.3), inset 0 0 20px rgba(57, 255, 20, 0.05)';
+                  }}
+                  title="下載 KML 並同步至 Google Maps 個人清單"
+                >
+                  <span style={{ fontSize: '16px' }}>🗺️</span>
+                  一鍵同步至 Google 地圖個人清單
+                </button>
+
+                {/* UI Hint Text with Frosted Glass Effect */}
+                <div
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    background: 'rgba(57, 255, 20, 0.05)',
+                    border: '1px solid rgba(57, 255, 20, 0.15)',
+                    backdropFilter: 'blur(8px)',
+                    fontSize: '11px',
+                    color: 'rgba(57, 255, 20, 0.8)',
+                    lineHeight: 1.4,
+                    fontWeight: '500',
+                    display: 'flex',
+                    gap: '8px',
+                    alignItems: 'flex-start'
+                  }}
+                >
+                  <span style={{ fontSize: '12px', flexShrink: 0 }}>ℹ️</span>
+                  <span>
+                    點擊後下載 KML 檔案，在 Google Maps 個人中心建立新清單並匯入，配送點將自動寫入。
+                    <strong style={{ display: 'block', marginTop: '4px', color: '#39ff14' }}>
+                      格式：配送清單_0523.kml
+                    </strong>
+                  </span>
+                </div>
                 
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', gap: '6px', lineHeight: 1.3 }}>
                   <Info size={14} style={{ flexShrink: 0 }} />
                   <span>
-                    一鍵點擊會將上述所有站點以<strong>最優配送順序</strong>打包載入 Google Maps，或導出清單供司機檢視。
+                    支援：Google Maps App、網頁版 Google 地圖、以及任何支援 KML 的地圖應用
                   </span>
                 </span>
               </div>
