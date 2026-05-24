@@ -1,7 +1,8 @@
 export interface GeocodingResult {
-  lat: number;
-  lng: number;
+  latitude: number;   // 配合 RoutePlanner 改回原名
+  longitude: number;  // 配合 RoutePlanner 改回原名
   success: boolean;
+  error?: boolean;    // 配合 RoutePlanner 補上對應欄位
   type: 'exact' | 'fuzzy' | 'default';
 }
 
@@ -17,24 +18,31 @@ function cleanTaiwanAddress(address: string): string {
 }
 
 export async function geocodeAddress(address: string): Promise<GeocodingResult> {
-  const defaultCoords = { lat: 25.0478, lng: 121.5170, success: false, type: 'default' as const };
+  // 預設台北車站防呆座標
+  const defaultCoords: GeocodingResult = { latitude: 25.0478, longitude: 121.5170, success: false, error: true, type: 'default' };
   if (!address) return defaultCoords;
   
   const cleanedAddress = cleanTaiwanAddress(address);
   
   try {
-    await delay(1200); // 嚴格排隊，避免被 Nominatim 鎖 IP
+    await delay(1200); // 嚴格間隔防止被鎖 IP
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanedAddress)}&countrycodes=tw&limit=1`;
     const response = await fetch(url, { headers: { 'User-Agent': 'LogiRouteAutomatedLogisticsAssistant/1.0' } });
     
     if (response.ok) {
       const data = await response.json();
       if (data && data.length > 0) {
-        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon), success: true, type: 'exact' };
+        return {
+          latitude: parseFloat(data[0].lat),
+          longitude: parseFloat(data[0].lon),
+          success: true,
+          error: false,
+          type: 'exact'
+        };
       }
     }
     
-    // 模糊備份方案 (擷取到路段)
+    // 模糊備份機制
     const roadMatch = address.match(/(.*?[路街街首段])\d+號?/);
     if (roadMatch && roadMatch[1]) {
       await delay(1200);
@@ -43,7 +51,13 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult> 
       if (fuzzyResp.ok) {
         const fuzzyData = await fuzzyResp.json();
         if (fuzzyData && fuzzyData.length > 0) {
-          return { lat: parseFloat(fuzzyData[0].lat), lng: parseFloat(fuzzyData[0].lon), success: true, type: 'fuzzy' };
+          return {
+            latitude: parseFloat(fuzzyData[0].lat),
+            longitude: parseFloat(fuzzyData[0].lon),
+            success: true,
+            error: false,
+            type: 'fuzzy'
+          };
         }
       }
     }
@@ -54,17 +68,21 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult> 
 }
 
 /**
- * 終極批次處理器：回傳以「地址為 Key」的 Dictionary，完美對接 RoutePlanner 的 results[item.address]
+ * 🛠️ 終極防錯多載批次查詢：
+ * 容許傳入 3 個參數，完美消化 (addresses, defaultRegion, progressCallback)
  */
 export async function batchGeocode(
   addresses: string[],
-  onProgress?: (progress: number) => void
+  arg2: any, // 自動包容 settings.defaultRegion 參數
+  arg3?: (progress: number) => void
 ): Promise<Record<string, GeocodingResult>> {
+  
+  // 自動判定第三個參數或第二個參數誰才是進度 Callback
+  const onProgress = typeof arg2 === 'function' ? arg2 : arg3;
   const dictionary: Record<string, GeocodingResult> = {};
   
   for (let i = 0; i < addresses.length; i++) {
     const addr = addresses[i];
-    // 避免重複查詢相同地址
     if (!dictionary[addr]) {
       dictionary[addr] = await geocodeAddress(addr);
     }
