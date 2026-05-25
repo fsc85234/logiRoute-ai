@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
-import OCRScanner from './components/OCRScanner';
+import { OCRScanner } from './components/OCRScanner';
 import AddressTable from './components/AddressTable';
 import RoutePlanner from './components/RoutePlanner';
 import Settings from './components/Settings';
