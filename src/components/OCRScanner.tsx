@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 
 interface OCRScannerProps {
   onImportItems: (items: any[]) => void;
-  settings?: any;
+  settings?: any; // 恢復接收設定檔
 }
 
-export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems }) => {
+export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -17,24 +17,29 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems }) => {
     setErrorMsg('');
 
     try {
-      // 🎯 【請在這裡填寫金鑰】直接把密碼貼在雙引號內，不要留空白
-      const apiKey = "AIzaSyDcKMxa6QQCDKiC0BSvQrVmpPEvvoOzgz4";
+      // 🛡️ 安全機制：動態從網頁設定中抓取金鑰，絕對不在程式碼裡寫死！
+      let apiKey = '';
+      if (settings) apiKey = settings.apiKey || settings.geminiApiKey || '';
+      if (!apiKey) {
+        try {
+          const localSettings = JSON.parse(localStorage.getItem('settings') || '{}');
+          apiKey = localSettings.apiKey || localSettings.geminiApiKey || '';
+        } catch(e) {}
+      }
+      if (!apiKey) apiKey = localStorage.getItem('gemini_api_key') || localStorage.getItem('geminiApiKey') || localStorage.getItem('apiKey') || '';
 
-      if (!apiKey || apiKey.includes('請把這裡換成')) {
-        throw new Error('⚠️ 尚未填寫金鑰：請在程式碼中填入真實的 API Key！');
+      if (!apiKey) {
+        throw new Error('⚠️ 辨識失敗：未設置 Gemini API Key。請先在「設定」頁面中填寫金鑰。');
       }
 
       const base64Image = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]);
-        };
-        reader.onerror = (error) => reject(error);
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = error => reject(error);
       });
 
-      // 使用最標準的字串相加，絕對不會踩到引號陷阱
+      // ✅ 完美修復版：使用字串相加 + flash-latest 模型
       const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" + apiKey;
 
       const response = await fetch(apiUrl, {
@@ -51,19 +56,17 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems }) => {
         })
       });
 
-      // 🚨 如果又失敗，這次會把 Google 拒絕的「真實原因」印在畫面上
       if (!response.ok) {
         const errDetails = await response.text();
-        console.error("Google API 拒絕原因:", errDetails);
-        throw new Error(`API 請求失敗 (狀態碼: ${response.status})。請按 F12 查看主控台紅字原因。`);
+        console.error("API 錯誤細節:", errDetails);
+        throw new Error(`API 請求失敗 (狀態碼: ${response.status})。`);
       }
 
       const data = await response.json();
       const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!rawText) throw new Error('AI 回傳的資料格式異常');
+      if (!rawText) throw new Error('AI 回傳資料異常');
 
       const parsedItems = JSON.parse(rawText);
-
       const formattedItems = parsedItems.map((item: any, index: number) => ({
         deliveryDate: item.deliveryDate || "",
         recipient: item.recipient || "",
@@ -72,7 +75,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems }) => {
         channel: item.channel || "",
         orderId: item.orderId || "",
         items: item.items || "",
-        sku: item.sku || item.items || item.productName || "一般包裹", 
+        sku: item.sku || item.items || item.productName || "一般包裹",
         deliveryTime: item.deliveryTime || "",
         serviceType: item.serviceType || "",
         remarks: item.remarks || "",
@@ -83,11 +86,10 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems }) => {
       onImportItems(formattedItems);
 
     } catch (error: any) {
-      console.error('OCR 處理錯誤:', error);
-      setErrorMsg(error.message || '圖片辨識過程中發生未知錯誤');
+      setErrorMsg(error.message || '辨識過程中發生錯誤');
     } finally {
       setIsLoading(false);
-      e.target.value = ''; 
+      e.target.value = '';
     }
   };
 
@@ -95,13 +97,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems }) => {
     <div className="p-6 bg-slate-900/50 rounded-xl border border-slate-800 text-center">
       <h3 className="text-xl font-bold text-white mb-2">📷 智慧派單辨識 (Gemini AI)</h3>
       <p className="text-slate-400 text-sm mb-6">上傳任何全新的派單圖片，AI 將為您自動解析所有配送點</p>
-      
-      {errorMsg && (
-        <div className="mb-4 p-3 bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg text-sm text-left">
-          {errorMsg}
-        </div>
-      )}
-
+      {errorMsg && <div className="mb-4 p-3 bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg text-sm text-left">{errorMsg}</div>}
       <label className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium rounded-lg cursor-pointer transition-all shadow-lg shadow-indigo-500/20">
         {isLoading ? '⏳ AI 正在拼命辨識中...' : '📤 點我上傳最新派單圖片'}
         <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} disabled={isLoading} />
