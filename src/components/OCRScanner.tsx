@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 interface OCRScannerProps {
   onImportItems: (items: any[]) => void;
-  settings?: any; // 恢復接收設定檔
+  settings?: any;
 }
 
 export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings }) => {
@@ -17,14 +17,14 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings 
     setErrorMsg('');
 
     try {
-      // 🛡️ 安全機制：動態從網頁設定中抓取金鑰，絕對不在程式碼裡寫死！
+      // 🛡️ 動態安全抓取金鑰
       let apiKey = '';
       if (settings) apiKey = settings.apiKey || settings.geminiApiKey || '';
       if (!apiKey) {
         try {
           const localSettings = JSON.parse(localStorage.getItem('settings') || '{}');
           apiKey = localSettings.apiKey || localSettings.geminiApiKey || '';
-        } catch(e) {}
+        } catch(err) {}
       }
       if (!apiKey) apiKey = localStorage.getItem('gemini_api_key') || localStorage.getItem('geminiApiKey') || localStorage.getItem('apiKey') || '';
 
@@ -39,8 +39,8 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings 
         reader.onerror = error => reject(error);
       });
 
-      // ✅ 完美修復版：使用字串相加 + flash-latest 模型
-      const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey;
+      // 穩定版 Gemini 1.5 Flash 模型
+      const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -67,23 +67,48 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings 
       if (!rawText) throw new Error('AI 回傳資料異常');
 
       const parsedItems = JSON.parse(rawText);
-      const formattedItems = parsedItems.map((item: any, index: number) => ({
-        deliveryDate: item.deliveryDate || "",
-        recipient: item.recipient || "",
-        address: item.address || "",
-        phone: item.phone || "",
-        channel: item.channel || "",
-        orderId: item.orderId || "",
-        items: item.items || "",
-        sku: item.sku || item.items || item.productName || "一般包裹",
-        deliveryTime: item.deliveryTime || "",
-        serviceType: item.serviceType || "",
-        remarks: item.remarks || "",
-        seq: item.seq || index + 1,
-        geocoded: false
-      }));
 
-      onImportItems(formattedItems);
+      // 🚀 1. 映射資料並自動【切除樓層】
+      const formattedItems = parsedItems.map((item: any, index: number) => {
+        let cleanAddress = item.address || "";
+        if (cleanAddress.includes("號")) {
+          // 只保留從開頭到「號」為止的字串
+          cleanAddress = cleanAddress.substring(0, cleanAddress.indexOf("號") + 1);
+        }
+
+        return {
+          deliveryDate: item.deliveryDate || "",
+          recipient: item.recipient || "",
+          address: cleanAddress, // 乾淨的地址
+          phone: item.phone || "",
+          channel: item.channel || "",
+          orderId: item.orderId || "",
+          items: item.items || "",
+          sku: item.sku || item.items || item.productName || "一般包裹",
+          deliveryTime: item.deliveryTime || "",
+          serviceType: item.serviceType || "",
+          remarks: item.remarks || "",
+          seq: item.seq || index + 1,
+          geocoded: false
+        };
+      });
+
+      // 🚀 2. 地址去重與合併濾網 (同址多單合併)
+      const uniqueItems = formattedItems.reduce((acc: any[], current: any) => {
+        const existing = acc.find(item => item.address === current.address);
+
+        if (existing) {
+          existing.items = `${existing.items} + ${current.items}`;
+          existing.sku = `${existing.sku} + ${current.sku}`;
+          if (current.orderId) existing.orderId = `${existing.orderId}, ${current.orderId}`;
+          if (current.remarks) existing.remarks = `${existing.remarks} | ${current.remarks}`;
+        } else {
+          acc.push({ ...current });
+        }
+        return acc;
+      }, []);
+
+      onImportItems(uniqueItems);
 
     } catch (error: any) {
       setErrorMsg(error.message || '辨識過程中發生錯誤');
