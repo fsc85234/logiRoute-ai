@@ -37,7 +37,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems }) => {
       });
 
       // 3. 呼叫 Gemini 1.5 Flash 視覺模型進行智慧解析
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" + apiKey, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
