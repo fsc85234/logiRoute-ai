@@ -25,6 +25,7 @@ interface ParsedDeliveryData {
   phone: string;
   channel: string;
   orderId: string;
+  sku?: string;  // ✅ 新增：商品編碼（可選，由 AI 辨識）
   items: string;
   deliveryTime: string;
   serviceType: string;
@@ -101,6 +102,7 @@ function parseAIResponse(rawResponse: string): ParsedDeliveryData[] {
         phone: String(item.phone).trim(),
         channel: String(item.channel).trim(),
         orderId: String(item.orderId).trim(),
+        sku: item.sku ? String(item.sku).trim() : undefined,  // ✅ 優先使用 AI 辨識的 sku
         items: String(item.items || '').trim(),
         deliveryTime: String(item.deliveryTime || '').trim(),
         serviceType: String(item.serviceType || '').trim(),
@@ -149,6 +151,7 @@ async function callGeminiAPI(
     "phone": "0912345678",
     "channel": "配送平台代碼 (CHE/PCH/SHF等)",
     "orderId": "訂單號碼",
+    "sku": "商品編碼/SKU (可選，如有請填入)",
     "items": "商品名稱",
     "deliveryTime": "配送時段 (08:00-12:00 等)",
     "serviceType": "配送方式 (宅配/便利店等)",
@@ -160,8 +163,10 @@ async function callGeminiAPI(
 注意：
 1. 請確保 deliveryDate、recipient、address、phone、channel、orderId 都填入，不能為空
 2. 地址必須是完整的台灣地址，包括鄰里、號碼等細節
-3. 如果找不到某項信息，請返回「不詳」或「待確認」，但欄位必須存在
-4. 只返回 JSON，不要返回其他文字`,
+3. sku 欄位：如果派單上有商品編碼，請填入；否則留空或不填
+4. items 欄位：放商品名稱（如果派單上沒有單獨的商品名稱，可與 sku 相同）
+5. 如果找不到某項信息，請返回「不詳」或「待確認」，但欄位必須存在
+6. 只返回 JSON，不要返回其他文字`,
               },
               {
                 inlineData: {
@@ -388,22 +393,35 @@ export default function OCRScanner({ settings, onImportItems }: OCRScannerProps)
     
     try {
       // 轉換為 DeliveryItem 格式（不包括 id 和 status）
-      const itemsToImport = parsedData.map((item) => ({
-        deliveryDate: item.deliveryDate,
-        recipient: item.recipient,
-        address: item.address,
-        phone: item.phone,
-        channel: item.channel,
-        orderId: item.orderId,
-        items: item.items,
-        deliveryTime: item.deliveryTime,
-        serviceType: item.serviceType,
-        remarks: item.remarks || 'N/A',
-        seq: 0, // Will be assigned by App.tsx
-        latitude: 0,
-        longitude: 0,
-        geocoded: false,
-      }));
+      const itemsToImport = parsedData.map((item) => {
+        // ✅ 防呆字段映射：sku 優先順序
+        // 1. item.sku（如果 AI 辨識出商品編碼）
+        // 2. item.items（商品名稱作為 sku）
+        // 3. 空字符串（若以上都無）
+        const sku = item.sku || item.items || '';
+
+        return {
+          deliveryDate: item.deliveryDate,
+          recipient: item.recipient,
+          address: item.address,
+          phone: item.phone,
+          channel: item.channel,
+          orderId: item.orderId,
+          sku: sku,  // ✅ 新增：必需欄位，智能映射
+          items: item.items,
+          deliveryTime: item.deliveryTime,
+          serviceType: item.serviceType,
+          remarks: item.remarks || 'N/A',
+          seq: 0, // Will be assigned by App.tsx
+          latitude: 0,
+          longitude: 0,
+          geocoded: false,
+        };
+      });
+
+      console.log(`[OCRScanner] ✅ 轉換完成，準備匯入:`);
+      console.log(`  - 總計: ${itemsToImport.length} 項`);
+      console.log(`  - 包含 sku: ${itemsToImport.filter(i => i.sku).length}/${itemsToImport.length}`);
 
       onImportItems(itemsToImport);
       
