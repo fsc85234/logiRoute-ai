@@ -35,7 +35,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems }) => {
       });
 
       // 使用最標準的字串相加，絕對不會踩到引號陷阱
-      const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
+      const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" + apiKey;
 
       const response = await fetch(apiUrl, {
         method: 'POST',
