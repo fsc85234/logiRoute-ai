@@ -19,7 +19,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems }) => {
     try {
       // 1. 從瀏覽器暫存抓取你在「設定」填寫的 API Key
       // (涵蓋三種常見命名，確保一定抓得到)
-      const apiKey = localStorage.getItem('gemini_api_key') || localStorage.getItem('geminiApiKey') || localStorage.getItem('apiKey');
+     const apiKey = 'AIzaSyDcKMxa6QQCDKiC0BSvQrVmpPEvvoOzgz4'; // 請把這裡換成你複製的完整金鑰
       
       if (!apiKey) {
         throw new Error('⚠️ 辨識失敗：未設置 Gemini API Key。請先在「設定」頁面中填寫金鑰。');
