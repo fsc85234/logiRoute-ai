@@ -625,9 +625,34 @@ ${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).
                       <div style={{ fontWeight: '600', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {item.recipient} ({item.channel})
                       </div>
-                      <div style={{ color: 'var(--text-secondary)', marginTop: '2px', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {item.address}
-                      </div>
+                    <a 
+  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.address)}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  style={{ 
+    color: 'var(--text-secondary)', 
+    marginTop: '2px', 
+    fontSize: '11px', 
+    whiteSpace: 'nowrap', 
+    overflow: 'hidden', 
+    textOverflow: 'ellipsis',
+    display: 'block',
+    textDecoration: 'none',
+    transition: 'color 0.2s ease',
+    cursor: 'pointer'
+  }}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.color = 'var(--accent-cyan)';
+    e.currentTarget.style.textDecoration = 'underline';
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.color = 'var(--text-secondary)';
+    e.currentTarget.style.textDecoration = 'none';
+  }}
+  onClick={(e) => e.stopPropagation()}
+>
+  📍 {item.address}
+</a>
                     </div>
                     
                     {idx < filteredItems.length - 1 && (
