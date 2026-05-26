@@ -76,14 +76,16 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings 
           cleanAddress = cleanAddress.substring(0, cleanAddress.indexOf("號") + 1);
         }
         
-        // 2. 🧹 移除會讓 OSM 地圖引擎錯亂的「村、里、鄰」
-        // 這會把 "錦山里" 變成 "錦山"，"21鄰" 直接刪掉
-        cleanAddress = cleanAddress.replace(/村/g, '').replace(/里/g, '').replace(/\d+鄰/g, '');
+        // 2. 🛡️ 台灣專用安全過濾：精準移除「村里鄰」
+        // 使用正則表達式：只刪除接在「區、鎮、鄉、市」後面的村里名稱，避免誤殺「萬里區、埔里鎮」
+        cleanAddress = cleanAddress.replace(/([區鎮鄉市])[^區鎮鄉市]{1,3}[村里]/g, '$1');
+        // 刪除鄰
+        cleanAddress = cleanAddress.replace(/\d+鄰/g, '');
 
         return {
           deliveryDate: item.deliveryDate || "",
           recipient: item.recipient || "",
-          address: cleanAddress, // 使用雙重過濾後的乾淨地址
+          address: cleanAddress, // 使用安全過濾後的乾淨地址
           phone: item.phone || "",
           channel: item.channel || "",
           orderId: item.orderId || "",
