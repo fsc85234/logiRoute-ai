@@ -67,18 +67,23 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings 
 
       const parsedItems = JSON.parse(rawText);
 
-      // 🚀 1. 映射資料並自動【切除樓層】
+// 🚀 1. 映射資料並自動【切除樓層與干擾字眼】
       const formattedItems = parsedItems.map((item: any, index: number) => {
         let cleanAddress = item.address || "";
+        
+        // 1. 切除樓層 (只保留從開頭到「號」為止的字串)
         if (cleanAddress.includes("號")) {
-          // 只保留從開頭到「號」為止的字串
           cleanAddress = cleanAddress.substring(0, cleanAddress.indexOf("號") + 1);
         }
+        
+        // 2. 🧹 移除會讓 OSM 地圖引擎錯亂的「村、里、鄰」
+        // 這會把 "錦山里" 變成 "錦山"，"21鄰" 直接刪掉
+        cleanAddress = cleanAddress.replace(/村/g, '').replace(/里/g, '').replace(/\d+鄰/g, '');
 
         return {
           deliveryDate: item.deliveryDate || "",
           recipient: item.recipient || "",
-          address: cleanAddress, // 乾淨的地址
+          address: cleanAddress, // 使用雙重過濾後的乾淨地址
           phone: item.phone || "",
           channel: item.channel || "",
           orderId: item.orderId || "",
@@ -91,7 +96,6 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings 
           geocoded: false
         };
       });
-
       // 🚀 2. 地址去重與合併濾網 (同址多單合併)
       const uniqueItems = formattedItems.reduce((acc: any[], current: any) => {
         const existing = acc.find(item => item.address === current.address);

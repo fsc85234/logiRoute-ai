@@ -71,23 +71,31 @@ export default function App() {
     setItems(prev => [...prev, fullItem]);
   };
 
-  // CRUD Handler: Edit Address inline or from verification table
+// CRUD Handler: Edit Address inline or from verification table
   const handleUpdateItem = (id: string, updated: Partial<DeliveryItem>) => {
     setItems(prev => prev.map(item => {
       if (item.id === id) {
-        // If delivery date changes, we will need to resequence it later
+        // 💡 核心修復：如果使用者修改了地址，必須清空舊的經緯度，讓地圖重新掃描定位！
+        const needsReGeocode = updated.address !== undefined && updated.address !== item.address;
+        if (needsReGeocode) {
+          return { 
+            ...item, 
+            ...updated, 
+            latitude: undefined, 
+            longitude: undefined, 
+            geocoded: false,
+            geocodingError: undefined
+          };
+        }
         return { ...item, ...updated };
       }
       return item;
     }));
 
-    // If the delivery date has been changed, trigger a batch re-sequence for both dates
     if (updated.deliveryDate) {
       const oldItem = items.find(x => x.id === id);
       if (oldItem && oldItem.deliveryDate !== updated.deliveryDate) {
-        setTimeout(() => {
-          resequenceAllDates();
-        }, 100);
+        setTimeout(() => { resequenceAllDates(); }, 100);
       }
     }
   };
