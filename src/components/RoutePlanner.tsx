@@ -4,7 +4,6 @@ import {
   RefreshCw, 
   ExternalLink,
   ChevronRight,
-  Info,
   Map as MapIcon,
   AlertTriangle
 } from 'lucide-react';
@@ -82,7 +81,7 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
         attributionControl: false,
       });
 
-      // Add dark tile layer (we apply dark mode CSS filter in index.css)
+      // Add dark tile layer
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
       }).addTo(map);
@@ -94,7 +93,6 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
       markersLayerRef.current = markersLayer;
     }
 
-    // Clean up map instance on unmount to prevent leaks and double init errors
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
@@ -107,7 +105,6 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
 
   // 3. Process geocoding and draw markers whenever selectedDate or filteredItems change
   useEffect(() => {
-    // Check if there are any un-geocoded addresses
     const hasUngeocoded = filteredItems.some(item => !item.latitude || !item.longitude);
     if (hasUngeocoded && !isGeocoding) {
       triggerGeocoding();
@@ -116,7 +113,6 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
 
     if (!mapInstanceRef.current || !markersLayerRef.current) return;
 
-    // Clear previous elements
     markersLayerRef.current.clearLayers();
     if (polylineRef.current) {
       polylineRef.current.remove();
@@ -125,16 +121,14 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
 
     const validCoordinates: L.LatLngExpression[] = [];
 
-    // Plot markers
     filteredItems.forEach((item) => {
       if (!item.latitude || !item.longitude) return;
 
       const latLng: L.LatLngExpression = [item.latitude, item.longitude];
       validCoordinates.push(latLng);
 
-      // Determine sequence marker style
       const customIcon = L.divIcon({
-        className: '', // Clear default styling
+        className: '',
         html: `<div class="custom-map-marker" style="
           width: 28px;
           height: 28px;
@@ -155,7 +149,6 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
         popupAnchor: [0, -14],
       });
 
-      // Bind detailed delivery information popup
       const popupContent = `
         <div style="font-family: var(--font-sans); padding: 4px; min-width: 200px;">
           <h4 style="margin: 0 0 6px 0; color: var(--accent-cyan); font-family: var(--font-title); font-size: 14px;">
@@ -182,19 +175,17 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
         .addTo(markersLayerRef.current!);
     });
 
-    // Draw route path line (Polyline)
     if (validCoordinates.length > 1) {
       const polyline = L.polyline(validCoordinates, {
         color: 'var(--accent-cyan)',
         weight: 3,
         opacity: 0.8,
-        dashArray: '6, 6', // Dotted highway path
+        dashArray: '6, 6',
       }).addTo(mapInstanceRef.current);
 
       polylineRef.current = polyline;
     }
 
-    // Zoom fit the map to cover all active markers
     if (validCoordinates.length > 0) {
       const bounds = L.latLngBounds(validCoordinates);
       mapInstanceRef.current.fitBounds(bounds, {
@@ -202,7 +193,6 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
         maxZoom: 15,
       });
     } else {
-      // Default reset view back to center of Taiwan
       mapInstanceRef.current.setView([23.6978, 120.9605], 7);
     }
   }, [selectedDate, items, isGeocoding]);
@@ -210,31 +200,24 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
   // 4. Generate Multi-Stop Google Maps Route URL
   const getGoogleMapsRouteUrl = () => {
     if (filteredItems.length === 0) return '';
-    
-    // Address coordinates or direct text addresses mapping
     const routeAddresses = filteredItems.map(item => encodeURIComponent(item.address));
-    
     if (routeAddresses.length === 1) {
-      return `https://www.google.com/maps/search/?api=1&query=${routeAddresses[0]}`;
+      return `https://www.google.com/maps/dir/?api=1&destination=${routeAddresses[0]}`;
     }
-
     return `https://www.google.com/maps/dir/${routeAddresses.join('/')}`;
   };
 
   const launchGoogleMaps = () => {
     const url = getGoogleMapsRouteUrl();
     if (url) {
-      // Use window.location.href for better mobile compatibility
-      // This works reliably on both desktop and mobile browsers
       window.location.href = url;
     }
   };
 
-  // 5. Export route list as CSV with date as filename
+  // 5. Export route list as CSV
   const exportRouteListAsCSV = () => {
     if (filteredItems.length === 0) return;
 
-    // Prepare CSV header and data
     const headers = ['站次', '收件人', '頻道', '訂單號', '地址', '電話', '品名', '時段', '服務類型', '備註'];
     const csvContent = [
       headers.join(','),
@@ -252,7 +235,6 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
       ].join(','))
     ].join('\n');
 
-    // Create blob and download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -266,7 +248,7 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
     document.body.removeChild(link);
   };
 
-  // 6. Copy route list as formatted text to clipboard
+  // 6. Copy route list to clipboard
   const copyRouteListToClipboard = async () => {
     if (filteredItems.length === 0) return;
 
@@ -298,7 +280,6 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
 
   // 7. Generate KML file for Google Maps import
   const generateKMLAndDownload = () => {
-    // Validate: ensure we have items with coordinates
     const itemsWithCoords = filteredItems.filter(
       item => item.latitude && item.longitude && 
                typeof item.latitude === 'number' && 
@@ -307,48 +288,24 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
 
     if (itemsWithCoords.length === 0) {
       alert(
-        '❌ 無法導出：\n\n' +
-        '原因：配送點清單中沒有有效的 GPS 座標。\n\n' +
-        '解決步驟：\n' +
-        '1️⃣ 確認已在「地圖」頁面載入配送點\n' +
-        '2️⃣ 系統應自動地理編碼（將地址轉換為坐標）\n' +
-        '3️⃣ 請等待 5-10 秒讓地理編碼完成\n' +
-        '4️⃣ 確認地圖上已顯示所有配送點位置\n' +
-        '5️⃣ 再試一次下載'
+        '❌ 無法導出：\n\n原因：配送點清單中沒有有效的 GPS 座標。\n\n解決步驟：\n1️⃣ 確認已在「地圖」頁面載入配送點\n2️⃣ 系統應自動地理編碼（將地址轉換為坐標）\n3️⃣ 請等待 5-10 秒讓地理編碼完成\n4️⃣ 確認地圖上已顯示所有配送點位置\n5️⃣ 再試一次下載'
       );
       return;
     }
 
-    // If some items lack coordinates, warn user
     if (itemsWithCoords.length < filteredItems.length) {
       const missingCount = filteredItems.length - itemsWithCoords.length;
-      alert(
-        `⚠️ 部分配送點缺少座標\n\n` +
-        `將導出 ${itemsWithCoords.length}/${filteredItems.length} 個配送點\n` +
-        `（${missingCount} 個地點無法地理編碼，已排除）\n\n` +
-        `請稍候後重試，讓系統完成所有地理編碼。`
-      );
+      alert(`⚠️ 部分配送點缺少座標\n\n將導出 ${itemsWithCoords.length}/${filteredItems.length} 個配送點\n（${missingCount} 個地點無法地理編碼，已排除）\n\n請稍候後重試，讓系統完成所有地理編碼。`);
     }
 
-    // Extract date format: 2026-05-23 → 0523
     const dateShort = selectedDate.slice(-5).replace('-', '');
 
-    // Generate Placemark for each item with valid coordinates
     const placemarks = itemsWithCoords
       .map((item, index) => {
-        // Validate coordinates are numbers
         const lat = parseFloat(String(item.latitude));
         const lng = parseFloat(String(item.longitude));
 
-        // Skip invalid coordinates
-        if (isNaN(lat) || isNaN(lng)) {
-          console.warn(`Invalid coords for item ${item.seq}:`, item);
-          return '';
-        }
-
-        // Ensure coordinates are within valid range
-        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-          console.warn(`Out of range coords for item ${item.seq}:`, lat, lng);
+        if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
           return '';
         }
 
@@ -373,10 +330,9 @@ ${item.remarks && item.remarks !== 'N/A' ? `<b>備註：</b>${item.remarks}<br/>
         <styleUrl>#stopIcon</styleUrl>
       </Placemark>`;
       })
-      .filter(pm => pm !== '') // Remove empty placemark strings
+      .filter(pm => pm !== '')
       .join('\n');
 
-    // Generate KML document
     const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
@@ -390,7 +346,7 @@ ${item.remarks && item.remarks !== 'N/A' ? `<b>備註：</b>${item.remarks}<br/>
       <IconStyle>
         <color>ff4285F4</color>
         <Icon>
-          <href>http://maps.google.com/mapfiles/kml/pushpin/blue-pushpin.png</href>
+          <href>https://maps.google.com/mapfiles/kml/pushpin/blue-pushpin.png</href>
         </Icon>
         <hotSpot x="32" y="32" xunits="pixels" yunits="pixels"/>
         <scale>1.2</scale>
@@ -412,7 +368,6 @@ ${item.remarks && item.remarks !== 'N/A' ? `<b>備註：</b>${item.remarks}<br/>
 ${placemarks}
     </Folder>
 
-    <!-- 路線線段（用於視覺化配送路線） -->
     <Placemark>
       <name>📍 配送路線</name>
       <description>連接所有配送點的最優配送路線</description>
@@ -440,10 +395,7 @@ ${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).
   </Document>
 </kml>`;
 
-    // Create blob and download
-    const blob = new Blob([kmlContent], {
-      type: 'application/vnd.google-earth.kml+xml;charset=utf-8',
-    });
+    const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml;charset=utf-8' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
 
@@ -455,25 +407,7 @@ ${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).
     link.click();
     document.body.removeChild(link);
 
-    // Success feedback with detailed instructions
-    alert(
-      `✅ 已成功下載 KML 檔案！\n\n` +
-      `📋 檔案名稱: 配送清單_${dateShort}.kml\n` +
-      `📍 包含配送點: ${itemsWithCoords.length} 個\n\n` +
-      `📱 手機用戶（Google Maps App）：\n` +
-      `1️⃣ 打開 Google Maps App\n` +
-      `2️⃣ 點擊【☰ 選單】→ 【您的地點 (Your Places)】\n` +
-      `3️⃣ 點擊【＋ 新建清單 (Create List)】\n` +
-      `4️⃣ 清單名稱: 配送_${dateShort}\n` +
-      `5️⃣ 點擊【⋮ 選項】→ 【導入地點 (Import places)】\n` +
-      `6️⃣ 選擇下載的 KML 檔案\n` +
-      `7️⃣ ✨ 所有配送點將自動加入清單\n\n` +
-      `💻 電腦用戶（Google My Maps）：\n` +
-      `1️⃣ 前往 https://mymaps.google.com\n` +
-      `2️⃣ 點擊【建立新地圖】\n` +
-      `3️⃣ 左側【導入】→ 選擇 KML 檔案\n` +
-      `4️⃣ ✨ 地圖將自動顯示所有配送點`
-    );
+    alert(`✅ 已成功下載 KML 檔案！\n\n📋 檔案名稱: 配送清單_${dateShort}.kml\n📍 包含配送點: ${itemsWithCoords.length} 個\n\n📱 手機用戶（Google Maps App）：\n1️⃣ 打開 Google Maps App\n2️⃣ 點擊【☰ 選單】→ 【您的地點 (Your Places)】\n3️⃣ 點擊【＋ 新建清單 (Create List)】\n4️⃣ 清單名稱: 配送_${dateShort}\n5️⃣ 點擊【⋮ 選項】→ 【導入地點 (Import places)】\n6️⃣ 選擇下載的 KML 檔案\n7️⃣ ✨ 所有配送點將自動加入清單\n\n💻 電腦用戶（Google My Maps）：\n1️⃣ 前往 https://mymaps.google.com\n2️⃣ 點擊【建立新地圖】\n3️⃣ 左側【導入】→ 選擇 KML 檔案\n4️⃣ ✨ 地圖將自動顯示所有配送點`);
   };
 
   return (
@@ -510,18 +444,10 @@ ${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).
       </div>
 
       {/* Main planner panels - Responsive Grid */}
-      <div 
-        style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-          gap: '24px', 
-          height: 'calc(100vh - 260px)', 
-          minHeight: '450px'
-        }}
-      >
+      <div className="planner-container">
         
         {/* Map Panel */}
-        <div style={{ position: 'relative', height: '100%', minHeight: '300px' }}>
+        <div className="map-container">
           <div 
             ref={mapContainerRef} 
             style={{ 
@@ -562,18 +488,7 @@ ${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).
         </div>
 
         {/* Sidebar Planner Panel */}
-        <div 
-          className="glass-panel" 
-          style={{ 
-            padding: '20px', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: '20px', 
-            height: '100%',
-            overflowY: 'auto',
-            minHeight: '350px'
-          }}
-        >
+        <div className="glass-panel list-container">
           {/* Exporter Dashboard */}
           <div>
             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '600', letterSpacing: '0.05em' }}>
@@ -588,7 +503,7 @@ ${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).
           {filteredItems.length > 0 ? (
             <>
               {/* Route stop list summary */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, overflowY: 'auto', maxHeight: '280px', paddingRight: '4px' }}>
+              <div className="route-list-scroll">
                 {filteredItems.map((item, idx) => (
                   <div 
                     key={item.id}
@@ -625,34 +540,36 @@ ${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).
                       <div style={{ fontWeight: '600', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {item.recipient} ({item.channel})
                       </div>
-                    <a 
-  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.address)}`}
-  target="_blank"
-  rel="noopener noreferrer"
-  style={{ 
-    color: 'var(--text-secondary)', 
-    marginTop: '2px', 
-    fontSize: '11px', 
-    whiteSpace: 'nowrap', 
-    overflow: 'hidden', 
-    textOverflow: 'ellipsis',
-    display: 'block',
-    textDecoration: 'none',
-    transition: 'color 0.2s ease',
-    cursor: 'pointer'
-  }}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.color = 'var(--accent-cyan)';
-    e.currentTarget.style.textDecoration = 'underline';
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.color = 'var(--text-secondary)';
-    e.currentTarget.style.textDecoration = 'none';
-  }}
-  onClick={(e) => e.stopPropagation()}
->
-  📍 {item.address}
-</a>
+                      
+                      {/* 📍 Google Maps Clickable Address */}
+                      <a 
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.address)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ 
+                          color: 'var(--text-secondary)', 
+                          marginTop: '2px', 
+                          fontSize: '11px', 
+                          whiteSpace: 'nowrap', 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis',
+                          display: 'block',
+                          textDecoration: 'none',
+                          transition: 'color 0.2s ease',
+                          cursor: 'pointer'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = 'var(--accent-cyan)';
+                          e.currentTarget.style.textDecoration = 'underline';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = 'var(--text-secondary)';
+                          e.currentTarget.style.textDecoration = 'none';
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        📍 {item.address}
+                      </a>
                     </div>
                     
                     {idx < filteredItems.length - 1 && (
@@ -668,29 +585,11 @@ ${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).
                   className="btn btn-primary"
                   onClick={launchGoogleMaps}
                   style={{
-                    width: '100%',
-                    padding: '12px',
-                    fontSize: '14px',
+                    width: '100%', padding: '12px', fontSize: '14px',
                     background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
                     boxShadow: '0 4px 14px rgba(14, 165, 233, 0.3)',
-                    border: 'none',
-                    cursor: 'pointer',
-                    borderRadius: '10px',
-                    transition: 'var(--transition-smooth)',
-                    fontWeight: '600'
-                  }}
-                  onMouseDown={(e) => {
-                    // Add press feedback
-                    (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.98)';
-                  }}
-                  onMouseUp={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
-                  }}
-                  onTouchStart={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.98)';
-                  }}
-                  onTouchEnd={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
+                    border: 'none', cursor: 'pointer', borderRadius: '10px',
+                    transition: 'var(--transition-smooth)', fontWeight: '600'
                   }}
                 >
                   <MapIcon size={16} />
@@ -703,38 +602,14 @@ ${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).
                   <button
                     className="btn btn-secondary"
                     onClick={exportRouteListAsCSV}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      fontSize: '12px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--card-border)',
-                      background: 'rgba(139, 92, 246, 0.1)',
-                      color: 'var(--accent-violet)',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'var(--transition-smooth)'
-                    }}
-                    title="下載 CSV 檔案"
+                    style={{ flex: 1, padding: '10px', fontSize: '12px', borderRadius: '8px', background: 'rgba(139, 92, 246, 0.1)', color: 'var(--accent-violet)', fontWeight: '600', border: '1px solid var(--card-border)', cursor: 'pointer' }}
                   >
                     📥 下載 CSV
                   </button>
                   <button
                     className="btn btn-secondary"
                     onClick={copyRouteListToClipboard}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      fontSize: '12px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--card-border)',
-                      background: 'rgba(16, 185, 129, 0.1)',
-                      color: 'var(--accent-emerald)',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'var(--transition-smooth)'
-                    }}
-                    title="複製到剪貼板"
+                    style={{ flex: 1, padding: '10px', fontSize: '12px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent-emerald)', fontWeight: '600', border: '1px solid var(--card-border)', cursor: 'pointer' }}
                   >
                     📋 複製清單
                   </button>
@@ -744,56 +619,18 @@ ${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).
                 <button
                   onClick={generateKMLAndDownload}
                   style={{
-                    width: '100%',
-                    padding: '14px 16px',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    letterSpacing: '0.02em',
-                    borderRadius: '10px',
-                    border: '1.5px solid',
-                    borderColor: '#39ff14',
+                    width: '100%', padding: '14px 16px', fontSize: '13px', fontWeight: '700',
+                    borderRadius: '10px', border: '1.5px solid #39ff14',
                     background: 'linear-gradient(135deg, rgba(57, 255, 20, 0.08), rgba(57, 255, 20, 0.04))',
-                    color: '#39ff14',
-                    cursor: 'pointer',
-                    transition: 'var(--transition-smooth)',
-                    backdropFilter: 'blur(8px)',
+                    color: '#39ff14', cursor: 'pointer', backdropFilter: 'blur(8px)',
                     boxShadow: '0 0 20px rgba(57, 255, 20, 0.3), inset 0 0 20px rgba(57, 255, 20, 0.05)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    position: 'relative',
-                    overflow: 'hidden'
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                   }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                      '0 0 30px rgba(57, 255, 20, 0.6), inset 0 0 20px rgba(57, 255, 20, 0.15)';
-                    (e.currentTarget as HTMLButtonElement).style.background =
-                      'linear-gradient(135deg, rgba(57, 255, 20, 0.15), rgba(57, 255, 20, 0.08))';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                      '0 0 20px rgba(57, 255, 20, 0.3), inset 0 0 20px rgba(57, 255, 20, 0.05)';
-                    (e.currentTarget as HTMLButtonElement).style.background =
-                      'linear-gradient(135deg, rgba(57, 255, 20, 0.08), rgba(57, 255, 20, 0.04))';
-                  }}
-                  onTouchStart={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.transform = 'scale(0.98)';
-                    (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                      '0 0 25px rgba(57, 255, 20, 0.5)';
-                  }}
-                  onTouchEnd={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
-                    (e.currentTarget as HTMLButtonElement).style.boxShadow =
-                      '0 0 20px rgba(57, 255, 20, 0.3), inset 0 0 20px rgba(57, 255, 20, 0.05)';
-                  }}
-                  title="下載 KML 並同步至 Google Maps 個人清單"
                 >
                   <span style={{ fontSize: '16px' }}>🗺️</span>
                   一鍵同步至 Google 地圖個人清單
                 </button>
 
-                {/* UI Hint Text with Frosted Glass Effect */}
                 <div
                   style={{
                     padding: '10px 12px',
@@ -818,13 +655,6 @@ ${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).
                     </strong>
                   </span>
                 </div>
-                
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', gap: '6px', lineHeight: 1.3 }}>
-                  <Info size={14} style={{ flexShrink: 0 }} />
-                  <span>
-                    支援：Google Maps App、網頁版 Google 地圖、以及任何支援 KML 的地圖應用
-                  </span>
-                </span>
               </div>
             </>
           ) : (
@@ -835,7 +665,6 @@ ${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).
           )}
 
         </div>
-
       </div>
 
       <style>{`
@@ -843,17 +672,64 @@ ${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).
           to { transform: rotate(360deg); }
         }
 
-        /* Mobile responsiveness for map/sidebar layout */
+        /* 💻 Desktop Default Layout */
+        .planner-container {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+          gap: 24px;
+          height: calc(100vh - 260px);
+          min-height: 450px;
+        }
+
+        .map-container {
+          position: relative;
+          height: 100%;
+          min-height: 300px;
+        }
+
+        .list-container {
+          padding: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          height: 100%;
+          overflow-y: auto;
+          min-height: 350px;
+        }
+
+        .route-list-scroll {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          flex: 1;
+          overflow-y: auto;
+          max-height: 280px;
+          padding-right: 4px;
+        }
+
+        /* 📱 Mobile Responsive Layout */
         @media (max-width: 768px) {
-          div[style*="gridTemplateColumns"] {
-            grid-template-columns: 1fr !important;
-            height: auto !important;
-            min-height: auto !important;
+          .planner-container {
+            grid-template-columns: 1fr;
+            height: auto;
+            min-height: auto;
+            padding-bottom: 90px;
           }
 
-          div[style*="height: calc(100vh"] {
-            height: auto !important;
+          .map-container {
+            height: 45vh;
             min-height: 300px;
+          }
+
+          .list-container {
+            height: auto;
+            min-height: auto;
+            overflow: visible;
+          }
+
+          .route-list-scroll {
+            max-height: none;
+            overflow-y: visible;
           }
         }
       `}</style>
