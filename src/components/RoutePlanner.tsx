@@ -536,19 +536,20 @@ ${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).
                       {item.seq}
                     </div>
                     
-                    <div style={{ flex: 1, minWidth: 0 }}>
+<div style={{ flex: 1, minWidth: 0 }}>
+                      {/* 收件人與管道 */}
                       <div style={{ fontWeight: '600', color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {item.recipient} ({item.channel})
                       </div>
                       
-                      {/* 📍 Google Maps Clickable Address */}
+                      {/* 📍 Google Maps 一鍵導航地址 */}
                       <a 
                         href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.address)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ 
                           color: 'var(--text-secondary)', 
-                          marginTop: '2px', 
+                          marginTop: '4px', 
                           fontSize: '11px', 
                           whiteSpace: 'nowrap', 
                           overflow: 'hidden', 
@@ -570,6 +571,36 @@ ${itemsWithCoords.map(item => `          ${item.longitude},${item.latitude},0`).
                       >
                         📍 {item.address}
                       </a>
+
+                      {/* 📞 手機一鍵撥打電話按鈕 */}
+                      {item.phone && item.phone !== 'N/A' && item.phone.trim() !== '' && (
+                        <a 
+                          href={`tel:${item.phone.replace(/[\s-]/g, '')}`}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            color: 'var(--accent-emerald)',
+                            marginTop: '4px',
+                            fontSize: '11px',
+                            textDecoration: 'none',
+                            padding: '2px 6px',
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            borderRadius: '4px',
+                            transition: 'all 0.2s ease',
+                            fontWeight: '600'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(16, 185, 129, 0.2)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)';
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          📞 撥打: {item.phone}
+                        </a>
+                      )}
                     </div>
                     
                     {idx < filteredItems.length - 1 && (
