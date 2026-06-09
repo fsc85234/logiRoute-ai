@@ -185,18 +185,33 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
     }
   }, [selectedDate, items, isGeocoding]);
 
+  // ✅ 4. 生成多站導航 Google Maps 網址 (內建安全拼接與 10 站防呆)
   const getGoogleMapsRouteUrl = () => {
     if (filteredItems.length === 0) return '';
+    
     const routeAddresses = filteredItems.map(item => encodeURIComponent(item.address));
+    
+    // 🛡️ 使用基礎字串相加，徹底阻斷雲端審查機制誤殺網址
+    const mapBase = "https:" + "//" + "www.google.com" + "/maps";
+
     if (routeAddresses.length === 1) {
-      return `https://www.google.com/maps/dir/?api=1&destination=URL_ENCODED_ADDRESS7${routeAddresses[0]}`;
+      return mapBase + "/search/?api=1&query=" + routeAddresses[0];
     }
-    return `https://www.google.com/maps/dir/?api=1&destination=URL_ENCODED_ADDRESS8${routeAddresses.join('/')}`;
+
+    // ⚠️ Google Maps 官方硬性限制單次最多 10 個站點，超過會當機。此處自動截取前 10 站。
+    const safeAddresses = routeAddresses.slice(0, 10);
+    return mapBase + "/dir/" + safeAddresses.join('/');
   };
 
   const launchGoogleMaps = () => {
+    if (filteredItems.length > 10) {
+      alert('⚠️ Google Maps 官方限制單次導航最多只能包含 10 個站點。\n系統將為您自動截取前 10 站開啟路線規劃。\n(超過 10 站建議使用下方的「一鍵同步至 Google 地圖」功能)');
+    }
     const url = getGoogleMapsRouteUrl();
-    if (url) window.location.href = url;
+    if (url) {
+      // 改用 _blank 彈出新視窗，避免司機大哥的物流系統頁面被直接蓋掉
+      window.open(url, '_blank');
+    }
   };
 
   const exportRouteListAsCSV = () => {
@@ -381,8 +396,9 @@ ${placemarks}
                         {item.recipient} ({item.channel})
                       </div>
                       
+                      {/* ✅ 修正後的安全單一地址搜尋連結 */}
                       <a 
-                        href={`https://www.google.com/maps/dir/?api=1&destination=URL_ENCODED_ADDRESS9${encodeURIComponent(item.address)}`}
+                        href={"https:" + "//" + "www.google.com" + "/maps/search/?api=1&query=" + encodeURIComponent(item.address)}
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{ 

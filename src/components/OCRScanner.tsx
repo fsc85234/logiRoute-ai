@@ -17,7 +17,6 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings 
     setErrorMsg('');
 
     try {
-      // 🛡️ 動態安全抓取金鑰
       let apiKey = '';
       if (settings) apiKey = settings.apiKey || settings.geminiApiKey || '';
       if (!apiKey) {
@@ -28,9 +27,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings 
       }
       if (!apiKey) apiKey = localStorage.getItem('gemini_api_key') || localStorage.getItem('geminiApiKey') || localStorage.getItem('apiKey') || '';
 
-      if (!apiKey) {
-        throw new Error('⚠️ 辨識失敗：未設置 Gemini API Key。請先在「設定」頁面中填寫金鑰。');
-      }
+      if (!apiKey) throw new Error('⚠️ 辨識失敗：未設置 Gemini API Key。請先在「設定」頁面中填寫金鑰。');
 
       const base64Image = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -55,11 +52,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings 
         })
       });
 
-      if (!response.ok) {
-        const errDetails = await response.text();
-        console.error("API 錯誤細節:", errDetails);
-        throw new Error(`API 請求失敗 (狀態碼: ${response.status})。`);
-      }
+      if (!response.ok) throw new Error(`API 請求失敗 (狀態碼: ${response.status})。`);
 
       const data = await response.json();
       const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -67,32 +60,26 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings 
 
       const parsedItems = JSON.parse(rawText);
 
-// 🚀 1. 映射資料並自動【切除樓層與干擾字眼】
+      // 🚀 1. 映射資料並自動【切除樓層與干擾字眼】
       const formattedItems = parsedItems.map((item: any, index: number) => {
         let cleanAddress = item.address || "";
         
-        // 🛡️ 新增 1：修復 AI 幻覺導致的「開頭重複字串」
-        // (例如：把「新北市三芝區新北市三芝區」自動還原成「新北市三芝區」)
+        // 🛡️ 修復 AI 幻覺導致的「開頭重複字串」
         cleanAddress = cleanAddress.replace(/^(.{3,10}?)\1+/, '$1');
 
-        // 2. 切除樓層 (只保留從開頭到「號」為止的字串)
         if (cleanAddress.includes("號")) {
           cleanAddress = cleanAddress.substring(0, cleanAddress.indexOf("號") + 1);
         }
         
-        // 🛡️ 新增 2：簡化複雜門牌號碼 (專治 OSM 地圖找不到 -5號 或 之3號 的問題)
-        // (例如：把「2-5號」或「10之3號」一律簡化為「2號」、「10號」)
+        // 🛡️ 簡化複雜門牌與精準移除村里鄰
         cleanAddress = cleanAddress.replace(/(之|-)\d+號/g, '號');
-        
-        // 3. 台灣專用安全過濾：精準移除「村里鄰」
-        // (只刪除接在「區、鎮、鄉、市」後面的村里名稱，避免誤殺「萬里區、埔里鎮」)
         cleanAddress = cleanAddress.replace(/([區鎮鄉市])[^區鎮鄉市]{1,3}[村里]/g, '$1');
         cleanAddress = cleanAddress.replace(/\d+鄰/g, '');
 
         return {
           deliveryDate: item.deliveryDate || "",
           recipient: item.recipient || "",
-          address: cleanAddress, // ✨ 使用終極 4 重過濾後的完美乾淨地址
+          address: cleanAddress,
           phone: item.phone || "",
           channel: item.channel || "",
           orderId: item.orderId || "",
@@ -105,10 +92,10 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings 
           geocoded: false
         };
       });
-      // 🚀 2. 地址去重與合併濾網 (同址多單合併)
+
+      // 🚀 2. 地址去重與合併濾網
       const uniqueItems = formattedItems.reduce((acc: any[], current: any) => {
         const existing = acc.find(item => item.address === current.address);
-
         if (existing) {
           existing.items = `${existing.items} + ${current.items}`;
           existing.sku = `${existing.sku} + ${current.sku}`;
