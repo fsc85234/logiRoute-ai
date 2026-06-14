@@ -185,40 +185,35 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
     }
   }, [selectedDate, items, isGeocoding]);
 
-  // ✅ 4. 生成多站導航 Google Maps 網址 (內建安全拼接與 10 站防呆)
-  const getGoogleMapsRouteUrl = () => {
-    if (filteredItems.length === 0) return '';
-    
-    const routeAddresses = filteredItems.map(item => encodeURIComponent(item.address));
-    
-    // 🛡️ 使用基礎字串相加，徹底阻斷雲端審查機制誤殺網址
-    const mapBase = "https:" + "//" + "www.google.com" + "/maps";
-
-    if (routeAddresses.length === 1) {
-      return mapBase + "/search/?api=1&query=" + routeAddresses[0];
+ // 🚚 4. 智慧分段導航：將所有站點自動切成「每 10 站一組」的陣列
+  const getRouteChunks = () => {
+    const chunks = [];
+    for (let i = 0; i < filteredItems.length; i += 10) {
+      chunks.push(filteredItems.slice(i, i + 10));
     }
-
-    // ⚠️ Google Maps 官方硬性限制單次最多 10 個站點，超過會當機。此處自動截取前 10 站。
-    const safeAddresses = routeAddresses.slice(0, 10);
-    return mapBase + "/dir/" + safeAddresses.join('/');
+    return chunks;
   };
 
-const launchGoogleMaps = () => {
-    if (filteredItems.length > 10) {
-      alert('⚠️ Google Maps 官方限制單次導航最多只能包含 10 個站點。\n系統將為您自動截取前 10 站開啟路線規劃。\n(超過 10 站建議使用下方的「一鍵同步至 Google 地圖」功能)');
+  // 🚀 執行特定區塊的跳轉
+  const launchGoogleMapsChunk = (chunkItems: DeliveryItem[]) => {
+    if (chunkItems.length === 0) return;
+    
+    const routeAddresses = chunkItems.map(item => encodeURIComponent(item.address));
+    const mapBase = "https:" + "//" + "www.google.com" + "/maps";
+    
+    let url = "";
+    if (routeAddresses.length === 1) {
+      url = mapBase + "/search/?api=1&query=" + routeAddresses[0];
+    } else {
+      url = mapBase + "/dir/" + routeAddresses.join('/');
     }
-    const url = getGoogleMapsRouteUrl();
-    if (url) {
-      // 🕵️‍♂️ 智慧偵測：判斷使用者目前是不是用手機或平板
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      
-      if (isMobile) {
-        // 📱 手機端：直接跳轉，完美喚醒手機裡的 Google Maps APP
-        window.location.href = url;
-      } else {
-        // 💻 電腦端：開啟新分頁，保護原本的物流網頁不被蓋掉
-        window.open(url, '_blank');
-      }
+
+    // 📱 雙裝置智慧偵測
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      window.location.href = url; // 手機：直接喚醒 APP
+    } else {
+      window.open(url, '_blank'); // 電腦：開新分頁防覆蓋
     }
   };
 
@@ -448,13 +443,34 @@ ${placemarks}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid var(--card-border)', paddingTop: '16px' }}>
-                <button 
-                  className="btn btn-primary"
-                  onClick={launchGoogleMaps}
-                  style={{ width: '100%', padding: '12px', fontSize: '14px', background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', border: 'none', cursor: 'pointer', borderRadius: '10px', fontWeight: '600' }}
-                >
-                  <MapIcon size={16} />一鍵生成 Google Maps 路線<ExternalLink size={14} />
-                </button>
+             {/* 🚚 智慧分段導航按鈕群組 */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {getRouteChunks().map((chunk, index) => {
+                    const startSeq = chunk[0].seq;
+                    const endSeq = chunk[chunk.length - 1].seq;
+                    const isMulti = getRouteChunks().length > 1;
+                    
+                    return (
+                      <button 
+                        key={index}
+                        className="btn btn-primary"
+                        onClick={() => launchGoogleMapsChunk(chunk)}
+                        style={{ 
+                          width: '100%', padding: '12px', fontSize: '14px', 
+                          background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', 
+                          border: 'none', cursor: 'pointer', borderRadius: '10px', fontWeight: '600',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                        }}
+                      >
+                        <MapIcon size={16} />
+                        {isMulti 
+                          ? `📍 導航第 ${startSeq} ~ ${endSeq} 站路線` 
+                          : `一鍵生成 Google Maps 路線`}
+                        <ExternalLink size={14} />
+                      </button>
+                    );
+                  })}
+                </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button className="btn btn-secondary" onClick={exportRouteListAsCSV} style={{ flex: 1, padding: '10px', fontSize: '12px', borderRadius: '8px', background: 'rgba(139, 92, 246, 0.1)', color: 'var(--accent-violet)', fontWeight: '600', border: '1px solid var(--card-border)' }}>📥 下載 CSV</button>
                   <button className="btn btn-secondary" onClick={copyRouteListToClipboard} style={{ flex: 1, padding: '10px', fontSize: '12px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--accent-emerald)', fontWeight: '600', border: '1px solid var(--card-border)' }}>📋 複製清單</button>
