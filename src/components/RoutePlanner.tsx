@@ -203,14 +203,14 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
     return mapBase + "/dir/" + safeAddresses.join('/');
   };
 
-  const launchGoogleMaps = () => {
+const launchGoogleMaps = () => {
     if (filteredItems.length > 10) {
       alert('⚠️ Google Maps 官方限制單次導航最多只能包含 10 個站點。\n系統將為您自動截取前 10 站開啟路線規劃。\n(超過 10 站建議使用下方的「一鍵同步至 Google 地圖」功能)');
     }
     const url = getGoogleMapsRouteUrl();
     if (url) {
-      // 改用 _blank 彈出新視窗，避免司機大哥的物流系統頁面被直接蓋掉
-      window.open(url, '_blank');
+      // 📱 針對手機版優化：使用 location.href 才能成功喚醒手機底層的 Google Maps APP
+      window.location.href = url;
     }
   };
 
