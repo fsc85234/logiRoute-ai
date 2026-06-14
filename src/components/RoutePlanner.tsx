@@ -209,8 +209,16 @@ const launchGoogleMaps = () => {
     }
     const url = getGoogleMapsRouteUrl();
     if (url) {
-      // 📱 針對手機版優化：使用 location.href 才能成功喚醒手機底層的 Google Maps APP
-      window.location.href = url;
+      // 🕵️‍♂️ 智慧偵測：判斷使用者目前是不是用手機或平板
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // 📱 手機端：直接跳轉，完美喚醒手機裡的 Google Maps APP
+        window.location.href = url;
+      } else {
+        // 💻 電腦端：開啟新分頁，保護原本的物流網頁不被蓋掉
+        window.open(url, '_blank');
+      }
     }
   };
 
