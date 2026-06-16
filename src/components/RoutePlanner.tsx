@@ -18,7 +18,10 @@ interface RoutePlannerProps {
 }
 
 export default function RoutePlanner({ items, settings, onUpdateItemCoords }: RoutePlannerProps) {
-  const uniqueDates = Array.from(new Set(items.map(item => item.deliveryDate))).filter(Boolean).sort();
+  // 🔄 改為降冪排序 (由新到舊)，讓最新辨識的日期永遠排在第一個
+  const uniqueDates = Array.from(new Set(items.map(item => item.deliveryDate)))
+    .filter(Boolean)
+    .sort((a, b) => b.localeCompare(a));
   const [selectedDate, setSelectedDate] = useState<string>(uniqueDates[0] || new Date().toISOString().split('T')[0]);
   
   const [isGeocoding, setIsGeocoding] = useState(false);
