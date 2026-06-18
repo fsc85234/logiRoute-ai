@@ -36,6 +36,7 @@ export default function Settings({ settings, setSettings, onClearDb }: SettingsP
     });
   };
 
+  // 🚀 真實測試 Google Gemini API Key 是否有效
   const testApiKey = async () => {
     if (!settings.geminiApiKey) {
       setTestStatus('error');
@@ -88,27 +89,27 @@ export default function Settings({ settings, setSettings, onClearDb }: SettingsP
           <label className="form-label" htmlFor="api-key-input">Gemini API Key</label>
           <div style={{ display: 'flex', gap: '12px' }}>
             <input
-            type="password"
-            value={settings.geminiApiKey}
-            onChange={(e) => setSettings({ ...settings, geminiApiKey: e.target.value })}
-            placeholder="請貼上您的 API Key (AIzaSy...)"
-            style={{
-              flex: 1,                 // 🌟 關鍵修復：讓輸入框自動填滿剩餘空間
-              minWidth: '100px',       // 🌟 關鍵修復：防止在極窄螢幕被過度壓縮
-              width: '100%',
-              padding: '12px 16px',
-              borderRadius: '10px',
-              border: '1px solid var(--card-border)',
-              background: 'rgba(0, 0, 0, 0.2)',
-              color: 'white',
-              fontSize: '14px',
-              fontFamily: 'monospace',
-              outline: 'none',
-              transition: 'border-color 0.2s',
-            }}
-            onFocus={(e) => e.target.style.borderColor = 'var(--accent-cyan)'}
-            onBlur={(e) => e.target.style.borderColor = 'var(--card-border)'}
-          />
+              type="password"
+              value={settings.geminiApiKey}
+              onChange={(e) => setSettings({ ...settings, geminiApiKey: e.target.value })}
+              placeholder="請貼上您的 API Key (AIzaSy...)"
+              style={{
+                flex: 1,                 // 🌟 關鍵修復：讓輸入框自動填滿剩餘空間
+                minWidth: '100px',       // 🌟 關鍵修復：防止在極窄螢幕被過度壓縮
+                width: '100%',
+                padding: '12px 16px',
+                borderRadius: '10px',
+                border: '1px solid var(--card-border)',
+                background: 'rgba(0, 0, 0, 0.2)',
+                color: 'white',
+                fontSize: '14px',
+                fontFamily: 'monospace',
+                outline: 'none',
+                transition: 'border-color 0.2s',
+              }}
+              onFocus={(e) => e.target.style.borderColor = 'var(--accent-cyan)'}
+              onBlur={(e) => e.target.style.borderColor = 'var(--card-border)'}
+            />
             <button
               className="btn btn-secondary"
               onClick={testApiKey}
