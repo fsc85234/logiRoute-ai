@@ -22,13 +22,6 @@ export default function Settings({ settings, setSettings, onClearDb }: SettingsP
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleApiKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSettings({
-      ...settings,
-      geminiApiKey: e.target.value,
-    });
-  };
-
   const handleRegionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSettings({
       ...settings,
@@ -95,15 +88,27 @@ export default function Settings({ settings, setSettings, onClearDb }: SettingsP
           <label className="form-label" htmlFor="api-key-input">Gemini API Key</label>
           <div style={{ display: 'flex', gap: '12px' }}>
             <input
-              id="api-key-input"
-              type="password"
-              className="form-input"
-              placeholder="AIzaSy..."
-              value={settings.geminiApiKey}
-              onChange={handleApiKeyChange}
-              disabled={settings.isMockMode}
-              style={{ flex: 1 }}
-            />
+            type="password"
+            value={settings.geminiApiKey}
+            onChange={(e) => setSettings({ ...settings, geminiApiKey: e.target.value })}
+            placeholder="請貼上您的 API Key (AIzaSy...)"
+            style={{
+              flex: 1,                 // 🌟 關鍵修復：讓輸入框自動填滿剩餘空間
+              minWidth: '100px',       // 🌟 關鍵修復：防止在極窄螢幕被過度壓縮
+              width: '100%',
+              padding: '12px 16px',
+              borderRadius: '10px',
+              border: '1px solid var(--card-border)',
+              background: 'rgba(0, 0, 0, 0.2)',
+              color: 'white',
+              fontSize: '14px',
+              fontFamily: 'monospace',
+              outline: 'none',
+              transition: 'border-color 0.2s',
+            }}
+            onFocus={(e) => e.target.style.borderColor = 'var(--accent-cyan)'}
+            onBlur={(e) => e.target.style.borderColor = 'var(--card-border)'}
+          />
             <button
               className="btn btn-secondary"
               onClick={testApiKey}
