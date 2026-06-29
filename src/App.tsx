@@ -47,9 +47,29 @@ export default function App() {
   const handleDeleteItem = (_id: string) => setItems(prev => prev.filter(i => i.id !== _id));
   const handleDeleteMultipleItems = (_ids: string[]) => setItems(prev => prev.filter(i => !_ids.includes(i.id)));
   const handleReorderItems = (_date: string, _reordered: DeliveryItem[]) => {};
-  const handleImportOCRItems = (newItems: Omit<DeliveryItem, 'id' | 'status'>[]) => { 
-    setItems(prev => [...prev, ...newItems.map(i => ({...i, id: generateId(), status: 'pending' as const, seq: 1}))]); 
-    setActiveTab('map'); 
+  const handleImportOCRItems = (newItems: Omit<DeliveryItem, 'id' | 'status'>[]) => {
+    setItems(prev => {
+      // 紀錄目前每個日期的最大站次，避免重複
+      const currentCounts: Record<string, number> = {};
+      prev.forEach(item => {
+        currentCounts[item.deliveryDate] = Math.max(currentCounts[item.deliveryDate] || 0, item.seq);
+      });
+
+      // 為每筆新匯入的資料依序自動編號
+      const processedItems = newItems.map(item => {
+        const date = item.deliveryDate;
+        currentCounts[date] = (currentCounts[date] || 0) + 1;
+        return {
+          ...item,
+          id: generateId(),
+          status: 'pending' as const,
+          seq: currentCounts[date]
+        };
+      });
+
+      return [...prev, ...processedItems];
+    });
+    setActiveTab('map');
   };
   const handleUpdateItemCoords = (id: string, lat: number, lng: number, error?: boolean) => {
     setItems(prev => prev.map(item => item.id === id ? { ...item, latitude: lat, longitude: lng, geocoded: !error, geocodingError: error } : item));
