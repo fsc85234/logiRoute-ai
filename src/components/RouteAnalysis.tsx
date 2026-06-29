@@ -318,7 +318,7 @@ const buildRoutePlan = (inputStops: CoordinateStop[]): RoutePlan | null => {
     stops.unshift(startStop); 
   } else {
     // 【重點修改】若配送單中沒有倉庫地址，我們就「虛擬」一個出來並插在最前面
-    const warehouseStop: CoordinateStop = {
+    const warehouseStop = {
       id: 'warehouse-base',
       seq: 0, 
       orderId: 'N/A',
@@ -332,10 +332,11 @@ const buildRoutePlan = (inputStops: CoordinateStop[]): RoutePlan | null => {
       deliveryTime: 'N/A',
       sku: 'N/A',
       remarks: '系統固定預設起點',
-      latitude: 25.0588,  // 已預設為桃園長庚附近的合理座標，可自行微調
+      latitude: 25.0588,
       longitude: 121.3665,
-      geocoded: true
-    };
+      geocoded: true,
+      status: 'pending' as any // 加上 as any 強制通過型別檢查
+    } as CoordinateStop; // 👈 在大括號後面加上這段，確保不會有其他遺漏的屬性報錯
     stops.unshift(warehouseStop);
   }
   
