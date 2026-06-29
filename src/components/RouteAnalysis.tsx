@@ -179,15 +179,15 @@ const addDisplayCoordinates = (orderedStops: Array<Omit<OrderedStop, 'displayLat
   });
 };
 
+// 【演算法鎖定】：強制窮舉法以 index 0 為起點
 const findExactShortestOpenPath = (distanceMatrix: number[][]) => {
   const count = distanceMatrix.length;
   const maskCount = 1 << count;
   const dp = Array.from({ length: maskCount }, () => Array(count).fill(Number.POSITIVE_INFINITY));
   const parent = Array.from({ length: maskCount }, () => Array(count).fill(-1));
 
-  for (let index = 0; index < count; index += 1) {
-    dp[1 << index][index] = 0;
-  }
+  // 鎖定起點：初始化時，只允許 index 0 的距離為 0，其他點一律是無限大
+  dp[1][0] = 0; 
 
   for (let mask = 1; mask < maskCount; mask += 1) {
     for (let last = 0; last < count; last += 1) {
@@ -209,7 +209,7 @@ const findExactShortestOpenPath = (distanceMatrix: number[][]) => {
 
   const fullMask = maskCount - 1;
   let bestLast = 0;
-  let bestDistance = dp[fullMask][0];
+  let bestDistance = Number.POSITIVE_INFINITY;
 
   for (let last = 1; last < count; last += 1) {
     if (dp[fullMask][last] < bestDistance) {
@@ -261,6 +261,7 @@ const buildNearestNeighborRoute = (distanceMatrix: number[][], startIndex: numbe
   return route;
 };
 
+// 【演算法鎖定】：2-opt 交換法絕對不碰 index 0
 const improveRouteWithTwoOpt = (route: number[], distanceMatrix: number[][]) => {
   let bestRoute = [...route];
   let bestDistance = getPathDistance(bestRoute, distanceMatrix);
@@ -271,12 +272,13 @@ const improveRouteWithTwoOpt = (route: number[], distanceMatrix: number[][]) => 
     improved = false;
     attempts += 1;
 
-    for (let start = 0; start < bestRoute.length - 1; start += 1) {
-      for (let end = start + 1; end < bestRoute.length; end += 1) {
+    // 鎖死起點：迴圈從 1 開始，不讓 index 0 參與路線交換
+    for (let i = 1; i < bestRoute.length - 1; i += 1) {
+      for (let j = i + 1; j < bestRoute.length; j += 1) {
         const candidateRoute = [
-          ...bestRoute.slice(0, start),
-          ...bestRoute.slice(start, end + 1).reverse(),
-          ...bestRoute.slice(end + 1)
+          ...bestRoute.slice(0, i),
+          ...bestRoute.slice(i, j + 1).reverse(),
+          ...bestRoute.slice(j + 1)
         ];
         const candidateDistance = getPathDistance(candidateRoute, distanceMatrix);
 
@@ -292,27 +294,51 @@ const improveRouteWithTwoOpt = (route: number[], distanceMatrix: number[][]) => 
   return bestRoute;
 };
 
+// 【演算法鎖定】：大範圍搜索直接指定 0 號站點出發
 const findHeuristicShortestOpenPath = (distanceMatrix: number[][]) => {
-  let bestRoute: number[] = [];
-  let bestDistance = Number.POSITIVE_INFINITY;
-
-  for (let startIndex = 0; startIndex < distanceMatrix.length; startIndex += 1) {
-    const nearestRoute = buildNearestNeighborRoute(distanceMatrix, startIndex);
-    const improvedRoute = improveRouteWithTwoOpt(nearestRoute, distanceMatrix);
-    const improvedDistance = getPathDistance(improvedRoute, distanceMatrix);
-
-    if (improvedDistance < bestDistance) {
-      bestRoute = improvedRoute;
-      bestDistance = improvedDistance;
-    }
-  }
-
-  return bestRoute;
+  // 不再迴圈測試所有起點，直接傳入 0 作為絕對起點
+  const nearestRoute = buildNearestNeighborRoute(distanceMatrix, 0);
+  const improvedRoute = improveRouteWithTwoOpt(nearestRoute, distanceMatrix);
+  return improvedRoute;
 };
 
-const buildRoutePlan = (stops: CoordinateStop[]): RoutePlan | null => {
-  if (stops.length === 0) return null;
+// 【資料注入】：負責虛擬起點的產生與整合
+const buildRoutePlan = (inputStops: CoordinateStop[]): RoutePlan | null => {
+  if (inputStops.length === 0) return null;
 
+  const stops = [...inputStops];
+  const targetAddress = "文化三路33號";
+  const normalize = (str: string) => str.replace(/\s/g, '');
+  
+  const startIdx = stops.findIndex(s => normalize(s.address).includes(normalize(targetAddress)));
+  
+  if (startIdx > -1) {
+    const startStop = stops[startIdx];
+    stops.splice(startIdx, 1);
+    stops.unshift(startStop); 
+  } else {
+    // 【重點修改】若配送單中沒有倉庫地址，我們就「虛擬」一個出來並插在最前面
+    const warehouseStop: CoordinateStop = {
+      id: 'warehouse-base',
+      seq: 0, 
+      orderId: 'N/A',
+      channel: '起點',
+      address: '桃園市龜山區文化三路33號',
+      recipient: '發車中心',
+      phone: 'N/A',
+      items: 'N/A',
+      serviceType: 'N/A',
+      deliveryDate: stops[0].deliveryDate, 
+      deliveryTime: 'N/A',
+      sku: 'N/A',
+      remarks: '系統固定預設起點',
+      latitude: 25.0588,  // 已預設為桃園長庚附近的合理座標，可自行微調
+      longitude: 121.3665,
+      geocoded: true
+    };
+    stops.unshift(warehouseStop);
+  }
+  
   if (stops.length === 1) {
     return {
       orderedStops: [{
@@ -338,15 +364,19 @@ const buildRoutePlan = (stops: CoordinateStop[]): RoutePlan | null => {
     groups[coordinateKey] = (groups[coordinateKey] || 0) + 1;
     return groups;
   }, {});
+  
   const overlappingStopCount = Object.values(coordinateGroupCounts)
     .filter((count) => count > 1)
     .reduce((total, count) => total + count, 0);
+    
   const hasOverlappingCoordinates = overlappingStopCount > 0;
+  
   const distanceMatrix = buildDistanceMatrix(stops);
   const routeIndexes =
     stops.length <= EXACT_ROUTE_LIMIT
       ? findExactShortestOpenPath(distanceMatrix)
       : findHeuristicShortestOpenPath(distanceMatrix);
+      
   const optimizedDistanceKm = getPathDistance(routeIndexes, distanceMatrix);
   const originalRouteIndexes = stops.map((_, index) => index);
   const originalDistanceKm = getPathDistance(originalRouteIndexes, distanceMatrix);
@@ -359,6 +389,7 @@ const buildRoutePlan = (stops: CoordinateStop[]): RoutePlan | null => {
       distanceFromPreviousKm: index === 0 ? 0 : distanceMatrix[previousStopIndex][stopIndex]
     };
   }));
+  
   const displayOptimizedDistanceKm = orderedStops.reduce(
     (total, stop) => total + stop.displayDistanceFromPreviousKm,
     0
@@ -370,7 +401,7 @@ const buildRoutePlan = (stops: CoordinateStop[]): RoutePlan | null => {
     originalDistanceKm,
     savedDistanceKm: Math.max(0, originalDistanceKm - optimizedDistanceKm),
     methodLabel: [
-      stops.length <= EXACT_ROUTE_LIMIT ? '完整搜尋' : '多起點最近鄰 + 2-opt',
+      stops.length <= EXACT_ROUTE_LIMIT ? '完整搜尋(起點鎖定)' : '最近鄰 + 2-opt(起點鎖定)',
       hasOverlappingCoordinates ? '重疊點展開' : ''
     ].filter(Boolean).join(' / '),
     hasOverlappingCoordinates,
@@ -407,7 +438,9 @@ export default function RouteAnalysis({ items, onUpdateItemCoords }: RouteAnalys
   const missingCoordinateCount = filteredItems.length - coordinateStops.length;
   const reliableCoordinateCount = coordinateStops.filter(hasReliableCoordinate).length;
   const unreliableCoordinateCount = coordinateStops.length - reliableCoordinateCount;
+  
   const routePlan = useMemo(() => buildRoutePlan(coordinateStops), [coordinateStops]);
+  
   const overlappingStopCount = routePlan?.overlappingStopCount || 0;
   const hasNoItems = filteredItems.length === 0;
   const hasNoCoordinates = filteredItems.length > 0 && coordinateStops.length === 0;
