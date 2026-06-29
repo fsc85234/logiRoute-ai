@@ -17,7 +17,7 @@ interface RoutePlannerProps {
   onUpdateItemCoords: (id: string, lat: number, lng: number, error?: boolean) => void;
 }
 
-export default function RoutePlanner({ items, settings, onUpdateItemCoords }: RoutePlannerProps) {
+export default function RoutePlanner({ items, onUpdateItemCoords }: RoutePlannerProps) {
   // 🔄 改為降冪排序 (由新到舊)，讓最新辨識的日期永遠排在第一個
   const uniqueDates = useMemo(
     () => Array.from(new Set(items.map(item => item.deliveryDate)))
@@ -51,11 +51,7 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
 
     try {
       const addressesToGeocode = unlisted.map(item => item.address);
-      const results = await batchGeocode(
-        addressesToGeocode, 
-        settings.defaultRegion,
-        (progress: number) => setGeocodeProgress(progress)
-      );
+      const results = await batchGeocode(addressesToGeocode);
 
       unlisted.forEach(item => {
         const coords = results[item.address];
@@ -69,7 +65,7 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
       setIsGeocoding(false);
       setGeocodeProgress(0);
     }
-  }, [filteredItems, onUpdateItemCoords, settings.defaultRegion]);
+  }, [filteredItems, onUpdateItemCoords]);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -408,7 +404,6 @@ ${placemarks}
                         {item.recipient} ({item.channel})
                       </div>
                       
-                      {/* ✅ 修正後的安全單一地址搜尋連結 */}
                       <a 
                         href={"https:" + "//" + "www.google.com" + "/maps/search/?api=1&query=" + encodeURIComponent(item.address)}
                         target="_blank"
@@ -452,7 +447,6 @@ ${placemarks}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid var(--card-border)', paddingTop: '16px' }}>
-             {/* 🚚 智慧分段導航按鈕群組 */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {getRouteChunks().map((chunk, index) => {
                     const startSeq = chunk[0].seq;

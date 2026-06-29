@@ -51,7 +51,6 @@ const getCoordinateKey = (stop: Pick<CoordinateStop, 'latitude' | 'longitude'>) 
 
 const isDefaultFallbackCoordinate = (item: DeliveryItem) => {
   if (typeof item.latitude !== 'number' || typeof item.longitude !== 'number') return false;
-
   return (
     Math.abs(item.latitude - DEFAULT_FALLBACK_COORDINATE.latitude) < 0.000001 &&
     Math.abs(item.longitude - DEFAULT_FALLBACK_COORDINATE.longitude) < 0.000001
@@ -379,7 +378,8 @@ const buildRoutePlan = (stops: CoordinateStop[]): RoutePlan | null => {
   };
 };
 
-export default function RouteAnalysis({ items, settings, onUpdateItemCoords }: RouteAnalysisProps) {
+export default function RouteAnalysis({ items, onUpdateItemCoords }: RouteAnalysisProps) {
+
   const uniqueDates = useMemo(
     () => Array.from(new Set(items.map((item) => item.deliveryDate))).filter(Boolean).sort((a, b) => b.localeCompare(a)),
     [items]
@@ -523,11 +523,8 @@ export default function RouteAnalysis({ items, settings, onUpdateItemCoords }: R
     setGeocodeMessage('');
 
     try {
-      const results = await batchGeocode(
-        targetItems.map((item) => item.address),
-        settings.defaultRegion,
-        (progress) => setGeocodeProgress(progress)
-      );
+      const addresses = targetItems.map((item) => item.address);
+      const results = await batchGeocode(addresses);
 
       targetItems.forEach((item) => {
         const coords = results[item.address];
@@ -538,7 +535,7 @@ export default function RouteAnalysis({ items, settings, onUpdateItemCoords }: R
 
       setGeocodeMessage(successMessage);
     } catch {
-      setGeocodeMessage('座標定位失敗，請稍後再試或先到地圖頁確認地址。');
+      setGeocodeMessage('座標定位失敗，請稍後再試。');
     } finally {
       setIsGeocoding(false);
       setGeocodeProgress(0);
@@ -599,7 +596,7 @@ export default function RouteAnalysis({ items, settings, onUpdateItemCoords }: R
       `最短距離: ${formatDistance(routePlan.optimizedDistanceKm)}`,
       '',
       ...routePlan.orderedStops.map((stop) => (
-                        `${stop.optimizedSeq}. ${stop.recipient}｜原第 ${stop.seq} 站｜${stop.address}` +
+        `${stop.optimizedSeq}. ${stop.recipient}｜原第 ${stop.seq} 站｜${stop.address}` +
         `${stop.optimizedSeq === 1 ? '｜起點' : `｜前一站距離 ${formatDistance(stop.displayDistanceFromPreviousKm)}`}` +
         `${hasReliableCoordinate(stop) ? '' : '｜座標待確認'}` +
         `${stop.hasOverlappingCoordinate ? '｜座標重疊已展開' : ''}`
