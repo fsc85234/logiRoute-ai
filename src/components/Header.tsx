@@ -30,10 +30,21 @@ export default function Header({ items, activeTab }: HeaderProps) {
         return '配送地址庫 (Delivery Address List)';
       case 'map':
         return '地圖路徑規劃 (Route Planner & Visualizer)';
+      case 'analysis':
+        return '最佳路徑分析 (Best Route Analysis)';
       case 'settings':
         return '系統設定 (System Configurations)';
       default:
         return '控制面板 (Dashboard)';
+    }
+  };
+
+  const getSubtitle = () => {
+    switch (activeTab) {
+      case 'analysis':
+        return '分析地圖上的配送點座標，依最短距離重新排序並列出建議行車路線';
+      default:
+        return '透過 AI 影像辨識將物流配送單或 Excel 截圖自動轉換為 Google Maps 最佳多站導航路徑';
     }
   };
 
@@ -99,7 +110,7 @@ export default function Header({ items, activeTab }: HeaderProps) {
             {getTitle()}
           </h1>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            透過 AI 影像辨識將物流配送單或 Excel 截圖自動轉換為 Google Maps 最佳多站導航路徑
+            {getSubtitle()}
           </p>
         </div>
         <div 

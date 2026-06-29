@@ -61,12 +61,12 @@ export default function Settings({ settings, setSettings, onClearDb }: SettingsP
       if (response.ok) {
         setTestStatus('success');
       } else {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err?.error?.message || `HTTP ${response.status}`);
+        const err = await response.json().catch(() => ({})) as { error?: { message?: string } };
+        throw new Error(err.error?.message || `HTTP ${response.status}`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       setTestStatus('error');
-      setErrorMessage(error.message || '連線測試失敗。請確認金鑰正確性或網路狀態。');
+      setErrorMessage(error instanceof Error ? error.message : '連線測試失敗。請確認金鑰正確性或網路狀態。');
     }
   };
 

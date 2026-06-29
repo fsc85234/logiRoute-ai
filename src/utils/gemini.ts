@@ -88,8 +88,8 @@ export async function analyzeDeliverySlipImage(
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const errorMsg = errorData?.error?.message || `HTTP 錯誤 ${response.status}`;
+      const errorData = await response.json().catch(() => ({})) as { error?: { message?: string } };
+      const errorMsg = errorData.error?.message || `HTTP 錯誤 ${response.status}`;
       throw new Error(`Gemini API 呼叫失敗: ${errorMsg}`);
     }
 
@@ -121,9 +121,10 @@ export async function analyzeDeliverySlipImage(
     }));
 
     return parsedResult;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('OCR Parsing Error:', error);
-    throw new Error(error.message || '解析配送單圖片時發生未知錯誤。');
+    const message = error instanceof Error ? error.message : '解析配送單圖片時發生未知錯誤。';
+    throw new Error(message, { cause: error });
   }
 }
 

@@ -33,6 +33,8 @@ export default function AddressTable({
   onAddItem,
   onReorderItems
 }: AddressTableProps) {
+  type DeliveryStatus = DeliveryItem['status'];
+
   // Search and Filtering State
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -776,7 +778,7 @@ export default function AddressTable({
                       <select
                         className="form-input"
                         value={editForm.status || 'pending'}
-                        onChange={e => setEditForm({...editForm, status: e.target.value as any})}
+                        onChange={e => setEditForm({...editForm, status: e.target.value as DeliveryStatus})}
                         style={{ padding: '4px', fontSize: '12px', cursor: 'pointer' }}
                       >
                         <option value="pending">待配送</option>
@@ -786,7 +788,7 @@ export default function AddressTable({
                     ) : (
                       <select
                         value={item.status}
-                        onChange={e => onUpdateItem(item.id, { status: e.target.value as any })}
+                        onChange={e => onUpdateItem(item.id, { status: e.target.value as DeliveryStatus })}
                         style={{
                           padding: '4px 8px',
                           borderRadius: '12px',

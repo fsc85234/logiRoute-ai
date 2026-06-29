@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
   Navigation, 
   RefreshCw, 
@@ -19,9 +19,12 @@ interface RoutePlannerProps {
 
 export default function RoutePlanner({ items, settings, onUpdateItemCoords }: RoutePlannerProps) {
   // 🔄 改為降冪排序 (由新到舊)，讓最新辨識的日期永遠排在第一個
-  const uniqueDates = Array.from(new Set(items.map(item => item.deliveryDate)))
-    .filter(Boolean)
-    .sort((a, b) => b.localeCompare(a));
+  const uniqueDates = useMemo(
+    () => Array.from(new Set(items.map(item => item.deliveryDate)))
+      .filter(Boolean)
+      .sort((a, b) => b.localeCompare(a)),
+    [items]
+  );
   const [selectedDate, setSelectedDate] = useState<string>(uniqueDates[0] || new Date().toISOString().split('T')[0]);
   
   const [isGeocoding, setIsGeocoding] = useState(false);
@@ -32,11 +35,14 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
   const markersLayerRef = useRef<L.FeatureGroup | null>(null);
   const polylineRef = useRef<L.Polyline | null>(null);
 
-  const filteredItems = items
-    .filter(item => item.deliveryDate === selectedDate)
-    .sort((a, b) => a.seq - b.seq);
+  const filteredItems = useMemo(
+    () => items
+      .filter(item => item.deliveryDate === selectedDate)
+      .sort((a, b) => a.seq - b.seq),
+    [items, selectedDate]
+  );
 
-  const triggerGeocoding = async () => {
+  const triggerGeocoding = useCallback(async () => {
     const unlisted = filteredItems.filter(item => !item.latitude || !item.longitude);
     if (unlisted.length === 0) return;
 
@@ -63,7 +69,7 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
       setIsGeocoding(false);
       setGeocodeProgress(0);
     }
-  };
+  }, [filteredItems, onUpdateItemCoords, settings.defaultRegion]);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -99,8 +105,11 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
   useEffect(() => {
     const hasUngeocoded = filteredItems.some(item => !item.latitude || !item.longitude);
     if (hasUngeocoded && !isGeocoding) {
-      triggerGeocoding();
-      return;
+      const timeoutId = window.setTimeout(() => {
+        void triggerGeocoding();
+      }, 0);
+
+      return () => window.clearTimeout(timeoutId);
     }
 
     if (!mapInstanceRef.current || !markersLayerRef.current) return;
@@ -186,7 +195,7 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
     } else {
       mapInstanceRef.current.setView([23.6978, 120.9605], 7);
     }
-  }, [selectedDate, items, isGeocoding]);
+  }, [filteredItems, isGeocoding, triggerGeocoding]);
 
  // 🚚 4. 智慧分段導航：將所有站點自動切成「每 10 站一組」的陣列
   const getRouteChunks = () => {
@@ -204,17 +213,14 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
     const routeAddresses = chunkItems.map(item => encodeURIComponent(item.address));
     const mapBase = "https:" + "//" + "www.google.com" + "/maps";
     
-    let url = "";
-    if (routeAddresses.length === 1) {
-      url = mapBase + "/search/?api=1&query=" + routeAddresses[0];
-    } else {
-      url = mapBase + "/dir/" + routeAddresses.join('/');
-    }
+    const url = routeAddresses.length === 1
+      ? mapBase + "/search/?api=1&query=" + routeAddresses[0]
+      : mapBase + "/dir/" + routeAddresses.join('/');
 
     // 📱 雙裝置智慧偵測
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
-      window.location.href = url; // 手機：直接喚醒 APP
+      window.location.assign(url); // 手機：直接喚醒 APP
     } else {
       window.open(url, '_blank'); // 電腦：開新分頁防覆蓋
     }
@@ -270,7 +276,7 @@ export default function RoutePlanner({ items, settings, onUpdateItemCoords }: Ro
     try {
       await navigator.clipboard.writeText(textContent);
       alert('清單已複製到剪貼板！');
-    } catch (err) {
+    } catch {
       alert('複製失敗，請重試');
     }
   };

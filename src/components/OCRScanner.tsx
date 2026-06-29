@@ -1,8 +1,19 @@
 import React, { useState } from 'react';
+import type { DeliveryItem, SystemSettings } from '../types';
+
+type OCRImportItem = Omit<DeliveryItem, 'id' | 'status'>;
+
+type OCRParsedItem = Partial<OCRImportItem> & {
+  productName?: string;
+};
+
+type OCRScannerSettings = Partial<SystemSettings> & {
+  apiKey?: string;
+};
 
 interface OCRScannerProps {
-  onImportItems: (items: any[]) => void;
-  settings?: any;
+  onImportItems: (items: OCRImportItem[]) => void;
+  settings?: OCRScannerSettings;
 }
 
 export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings }) => {
@@ -21,9 +32,11 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings 
       if (settings) apiKey = settings.apiKey || settings.geminiApiKey || '';
       if (!apiKey) {
         try {
-          const localSettings = JSON.parse(localStorage.getItem('settings') || '{}');
+          const localSettings = JSON.parse(localStorage.getItem('settings') || '{}') as OCRScannerSettings;
           apiKey = localSettings.apiKey || localSettings.geminiApiKey || '';
-        } catch(err) {}
+        } catch {
+          // Ignore malformed legacy settings and keep checking fallback keys.
+        }
       }
       if (!apiKey) apiKey = localStorage.getItem('gemini_api_key') || localStorage.getItem('geminiApiKey') || localStorage.getItem('apiKey') || '';
 
@@ -58,10 +71,10 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings 
       const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!rawText) throw new Error('AI 回傳資料異常');
 
-      const parsedItems = JSON.parse(rawText);
+      const parsedItems = JSON.parse(rawText) as OCRParsedItem[];
 
       // 🚀 1. 映射資料並自動【切除樓層與干擾字眼】
-      const formattedItems = parsedItems.map((item: any, index: number) => {
+      const formattedItems: OCRImportItem[] = parsedItems.map((item, index) => {
         let cleanAddress = item.address || "";
         
         // 🛡️ 修復 AI 幻覺導致的「開頭重複字串」
@@ -94,7 +107,7 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings 
       });
 
       // 🚀 2. 地址去重與合併濾網
-      const uniqueItems = formattedItems.reduce((acc: any[], current: any) => {
+      const uniqueItems = formattedItems.reduce<OCRImportItem[]>((acc, current) => {
         const existing = acc.find(item => item.address === current.address);
         if (existing) {
           existing.items = `${existing.items} + ${current.items}`;
@@ -109,8 +122,8 @@ export const OCRScanner: React.FC<OCRScannerProps> = ({ onImportItems, settings 
 
       onImportItems(uniqueItems);
 
-    } catch (error: any) {
-      setErrorMsg(error.message || '辨識過程中發生錯誤');
+    } catch (error: unknown) {
+      setErrorMsg(error instanceof Error ? error.message : '辨識過程中發生錯誤');
     } finally {
       setIsLoading(false);
       e.target.value = '';

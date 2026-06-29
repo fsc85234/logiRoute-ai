@@ -2,6 +2,7 @@ import {
   Scan, 
   Database, 
   Map, 
+  Navigation,
   Settings as SettingsIcon, 
   Truck, 
   Sparkles
@@ -18,6 +19,7 @@ export default function Sidebar({ activeTab, setActiveTab, isMockMode }: Sidebar
     { id: 'ocr',      label: '智慧辨識', mobileLabel: '辨識', icon: Scan },
     { id: 'database', label: '配送地址庫', mobileLabel: '地址庫', icon: Database },
     { id: 'map',      label: '地圖路徑規劃', mobileLabel: '地圖', icon: Map },
+    { id: 'analysis', label: '最佳路徑分析', mobileLabel: '路徑', icon: Navigation },
     { id: 'settings', label: '系統設定', mobileLabel: '設定', icon: SettingsIcon },
   ];
 
