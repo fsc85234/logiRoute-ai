@@ -19,11 +19,16 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult> 
     if (data.status === 'OK' && data.results.length > 0) {
       const loc = data.results[0].geometry.location;
       return { latitude: loc.lat, longitude: loc.lng, success: true, error: false, type: 'exact' };
+    } else {
+      // 🕵️‍♂️ 如果找不到地址，或是 API 金鑰有問題，在控制台印出真實原因
+      console.error('Google Geocoding API 拒絕存取或找不到:', data.status, data.error_message);
+      return defaultCoords;
     }
   } catch (err) {
-    console.error('Google Geocoding error:', err);
+    // 網路斷線或其他嚴重錯誤
+    console.error('網路請求發生錯誤:', err);
+    return defaultCoords;
   }
-  return defaultCoords;
 }
 
 export async function batchGeocode(addresses: string[]): Promise<Record<string, GeocodingResult>> {
